@@ -12,6 +12,7 @@ import { rosterRouter } from './routes/roster';
 import { drsRouter } from './routes/drs';
 import { messagesRouter } from './routes/messages';
 import { rolloverRouter } from './routes/rollover';
+import { auctionRouter } from './routes/auction';
 
 const app = express();
 const PORT = process.env.PORT || 4200;
@@ -37,6 +38,7 @@ app.use('/roster', rosterRouter);
 app.use('/drs', drsRouter);
 app.use('/messages', messagesRouter);
 app.use('/rollover', rolloverRouter);
+app.use('/auction', auctionRouter);
 // Router successivi (montati man mano che le fasi avanzano):
 // app.use('/market', marketRouter);
 // app.use('/drs', drsRouter);

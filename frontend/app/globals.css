@@ -77,3 +77,20 @@ body {
 .rise {
   animation: riseIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+
+@keyframes snapIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.6) rotate(-4deg);
+  }
+  60% {
+    transform: scale(1.08) rotate(1deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
+}
+.tile-snap {
+  animation: snapIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}

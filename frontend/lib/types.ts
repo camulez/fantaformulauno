@@ -139,6 +139,56 @@ export interface AuctionRules {
   phaseOrder: string[];
 }
 
+// ─── Stato dell'asta (tabellone) ───
+export type AuctionSlot = "motore" | "sponsor" | "pilota1" | "benzina" | "telaio" | "pilota2";
+export type AuctionKind = "telaio" | "motore" | "pilota" | "sponsor" | "benzina";
+
+export interface AuctionComponent {
+  id: string;
+  kind: AuctionKind;
+  name: string;
+  basePrice: number;
+  scuderiaId: string | null;
+  assignedTo: string | null;
+}
+export interface AuctionParticipant {
+  teamId: string;
+  teamName: string;
+  personName: string;
+  budget: number;
+  garage: Partial<Record<AuctionSlot, string>>;
+}
+export interface AuctionSlip {
+  teamId: string;
+  componentId: string;
+  amount: number;
+}
+export interface AuctionRoundState {
+  slot: AuctionSlot;
+  roundNumber: number;
+  activeTeamIds: string[];
+  availableComponentIds: string[];
+  slips: AuctionSlip[];
+  mode: "bidding" | "tiebreak";
+  tieComponentId: string | null;
+  tieTeamIds: string[];
+  pendingTiebreaks: { componentId: string; teamIds: string[]; amount: number }[];
+  assignments: { teamId: string; componentId: string; componentName: string; amount: number }[];
+}
+export interface AuctionState {
+  seasonId: string;
+  status: "lobby" | "category" | "done";
+  budgetInitial: number;
+  participants: AuctionParticipant[];
+  components: AuctionComponent[];
+  round: AuctionRoundState | null;
+  history: { slot: AuctionSlot; componentId: string; componentName: string; winnerTeamId: string; amount: number }[];
+  lastAssignments: { teamId: string; componentId: string; componentName: string; amount: number }[];
+  phaseOrder: AuctionSlot[];
+  restricted: Record<string, string[]>;
+  allFull: boolean;
+}
+
 export interface ScoringRules {
   raceScale: number[];
   sprintScale: number[];
