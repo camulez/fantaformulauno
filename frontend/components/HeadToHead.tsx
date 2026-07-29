@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import type { TeamStanding } from "@/lib/types";
+import { shortName as short } from "@/lib/shortName";
 
 type ColoredTeam = TeamStanding & { color: string };
-const short = (n: string) => n.split(" ")[0];
 
 export function HeadToHead({ teams }: { teams: ColoredTeam[] }) {
   const [aIdx, setAIdx] = useState(0);

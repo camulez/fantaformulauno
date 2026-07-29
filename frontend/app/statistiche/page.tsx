@@ -4,9 +4,8 @@ import { CumulativeChart } from "@/components/charts/CumulativeChart";
 import { CategoryDonuts } from "@/components/charts/CategoryDonuts";
 import { HeadToHead } from "@/components/HeadToHead";
 import { teamColor } from "@/lib/chartColors";
+import { shortName as short } from "@/lib/shortName";
 import type { Me, StandingsResult } from "@/lib/types";
-
-const short = (name: string) => name.split(" ")[0];
 
 export default async function StatistichePage() {
   await serverFetch<Me>("/auth/me");
