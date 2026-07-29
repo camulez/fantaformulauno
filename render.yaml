@@ -1,0 +1,22 @@
+# Blueprint Render per il backend Express (monorepo: rootDir = backend).
+# Vercel gestisce il frontend a parte (root directory = frontend/).
+services:
+  - type: web
+    name: fantaformulauno-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: FRONTEND_ORIGIN
+        sync: false

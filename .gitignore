@@ -1,0 +1,16 @@
+# Dipendenze
+node_modules/
+
+# Build
+dist/
+.next/
+out/
+
+# Ambiente (mai committare i secret)
+.env
+.env.local
+.env*.local
+
+# Sistema / log
+.DS_Store
+*.log

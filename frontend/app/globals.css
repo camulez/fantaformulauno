@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+:root {
+  --carbon-950: #08090a;
+  --carbon-900: #0c0f11;
+  --carbon-850: #12161a;
+  --carbon-800: #171c21;
+  --carbon-line: #262d34;
+  --bone: #eef3f1;
+  --bone-dim: #8a969c;
+  --acid: #c6ff3a;
+  --acid-deep: #9bd400;
+  --red: #ff2e43;
+  --amber: #ffb020;
+}
+
+@theme inline {
+  --color-carbon: var(--carbon-900);
+  --color-carbon-950: var(--carbon-950);
+  --color-panel: var(--carbon-800);
+  --color-panel-2: var(--carbon-850);
+  --color-line: var(--carbon-line);
+  --color-bone: var(--bone);
+  --color-bone-dim: var(--bone-dim);
+  --color-acid: var(--acid);
+  --color-acid-deep: var(--acid-deep);
+  --color-red: var(--red);
+  --color-amber: var(--amber);
+
+  --font-display: var(--font-chakra);
+  --font-mono: var(--font-jet);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background-color: var(--carbon-950);
+  background-image:
+    radial-gradient(120% 85% at 50% -12%, rgba(198, 255, 58, 0.07), transparent 55%),
+    linear-gradient(180deg, var(--carbon-900), var(--carbon-950) 70%);
+  background-attachment: fixed;
+}
+
+/* bagliore sui numeri "timing" */
+.digit-glow {
+  text-shadow: 0 0 14px rgba(198, 255, 58, 0.4);
+}
+
+/* pannello carbonio */
+.panel {
+  background: linear-gradient(180deg, var(--carbon-850), var(--carbon-800));
+  border: 1px solid var(--carbon-line);
+}
+
+/* barra accento verticale (stile pit-wall) */
+.accent-bar {
+  box-shadow: inset 3px 0 0 var(--acid);
+}
+
+::selection {
+  background: var(--acid);
+  color: #0c0f11;
+}
+
+@keyframes riseIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.rise {
+  animation: riseIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}

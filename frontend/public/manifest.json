@@ -1,0 +1,9 @@
+{
+  "name": "FantaFormula1",
+  "short_name": "FantaF1",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#08090a",
+  "theme_color": "#08090a",
+  "icons": []
+}
