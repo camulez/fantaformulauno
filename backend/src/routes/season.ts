@@ -99,8 +99,14 @@ seasonRouter.put('/rules', async (req, res) => {
     return;
   }
 
+  // Preserva flag non-punteggio già in config (es. valuesApproved del listino d'asta).
+  const { data: existing } = await supabase.from('season_rules').select('config').eq('season_id', seasonId).maybeSingle();
+  const prev = (existing?.config as Record<string, unknown>) ?? {};
+  const configToSave: Record<string, unknown> = { ...merged };
+  if (prev.valuesApproved !== undefined) configToSave.valuesApproved = prev.valuesApproved;
+
   const up = await supabase.from('season_rules').upsert(
-    { season_id: seasonId, config: merged },
+    { season_id: seasonId, config: configToSave },
     { onConflict: 'season_id' }
   );
   if (up.error) {

@@ -203,6 +203,20 @@ export interface ScoringRules {
   auction: AuctionRules;
 }
 
+export interface ComponentValue {
+  id: string;
+  kind: AuctionKind;
+  name: string;
+  basePrice: number;
+  assignedTo: string | null;
+  owner: string | null;
+}
+export interface ValuesPayload {
+  approved: boolean;
+  auctionActive: boolean;
+  components: ComponentValue[];
+}
+
 export interface RosterHistoryRow {
   slot: string;
   name: string;
