@@ -133,6 +133,26 @@ export interface HistoryData {
   titoli: TitoliRow[];
 }
 
+export interface AuctionRules {
+  budget: number;
+  minIncrement: number;
+  phaseOrder: string[];
+}
+
+export interface ScoringRules {
+  raceScale: number[];
+  sprintScale: number[];
+  fastestLapPoint: number;
+  polePoints: number;
+  teamManagerPoints: number;
+  sponsorPointsPerCar: number;
+  benzinaPointsPerCar: number;
+  drsMultiplier: number;
+  drsScope: "race" | "race_sprint";
+  drsPerSeason: number;
+  auction: AuctionRules;
+}
+
 export interface RosterHistoryRow {
   slot: string;
   name: string;

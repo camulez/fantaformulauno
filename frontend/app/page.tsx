@@ -43,6 +43,12 @@ export default async function HomePage() {
               Bacheca
             </Link>
             <Link
+              href="/impostazioni"
+              className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-bone-dim transition-colors hover:text-acid"
+            >
+              Regole
+            </Link>
+            <Link
               href="/profilo"
               className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-bone-dim transition-colors hover:text-acid"
             >
