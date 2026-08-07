@@ -7,12 +7,14 @@ import {
   ChartIcon,
   FlagIcon,
   GavelIcon,
+  SteeringIcon,
   TrophyIcon,
 } from "@/components/icons";
 
 const ITEMS = [
   { href: "/", label: "Griglia", Icon: FlagIcon },
   { href: "/classifica", label: "Mondiale", Icon: TrophyIcon },
+  { href: "/simulatore", label: "Sim", Icon: SteeringIcon },
   { href: "/asta", label: "Asta", Icon: GavelIcon },
   { href: "/statistiche", label: "Dati", Icon: ChartIcon },
   { href: "/storico", label: "Albo", Icon: AwardIcon },

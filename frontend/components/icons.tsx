@@ -89,3 +89,14 @@ export function PowerIcon({ className }: IconProps) {
     </Svg>
   );
 }
+
+// Simulatore — volante
+export function SteeringIcon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="3" />
+      <path d="M3.5 10.5h5.2M15.3 10.5h5.2M12 15v5.8" />
+    </Svg>
+  );
+}
