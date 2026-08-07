@@ -1,6 +1,13 @@
 @import "tailwindcss";
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   FantaFormula1 — sistema di token. Direzione artistica in DESIGN.md.
+   Tesi: «il muretto dei box a fine gara: telemetria su carbonio, numeri che si
+   accendono come una torre dei tempi».
+   ───────────────────────────────────────────────────────────────────────────── */
+
 :root {
+  /* ── colore (preesistente, confermato) ── */
   --carbon-950: #08090a;
   --carbon-900: #0c0f11;
   --carbon-850: #12161a;
@@ -12,6 +19,62 @@
   --acid-deep: #9bd400;
   --red: #ff2e43;
   --amber: #ffb020;
+
+  /* ── spaziatura: scala su base 4 ── */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+
+  /* ── tipografia fluida: il titolo cresce con lo schermo, il corpo no ── */
+  --text-2xs: 0.625rem;
+  --text-xs: 0.6875rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.0625rem;
+  --text-xl: 1.375rem;
+  --text-2xl: clamp(1.6rem, 1.3rem + 1.5vw, 2.1rem);
+  --text-3xl: clamp(2rem, 1.5rem + 2.4vw, 2.9rem);
+  --text-4xl: clamp(2.6rem, 1.8rem + 3.6vw, 4rem);
+  --text-5xl: clamp(3.4rem, 2.2rem + 5.4vw, 5.6rem);
+
+  /* ── forma ── */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1.125rem;
+  --chamfer: 1.15rem; /* angolo tagliato: la firma formale */
+
+  /* ── elevazione: al buio si sale con la LUCE, non con l'ombra ── */
+  --elev-1:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  --elev-2:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 1px 2px rgba(0, 0, 0, 0.5),
+    0 8px 22px -12px rgba(0, 0, 0, 0.8);
+  --elev-3:
+    inset 0 1px 0 rgba(255, 255, 255, 0.075),
+    0 2px 4px rgba(0, 0, 0, 0.55),
+    0 18px 40px -16px rgba(0, 0, 0, 0.9);
+
+  /* ── movimento ── */
+  --dur-1: 140ms; /* stati, hover, focus */
+  --dur-2: 260ms; /* entrate, aperture */
+  --dur-3: 420ms; /* il momento */
+  --dur-4: 620ms; /* accensione a cascata completa */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --stagger: 40ms;
+
+  /* ── sovrapposizione ── */
+  --z-nav: 40;
+  --z-overlay: 60;
+  --z-hud: 30;
 }
 
 @theme inline {
@@ -29,6 +92,11 @@
 
   --font-display: var(--font-chakra);
   --font-mono: var(--font-jet);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
 }
 
 html {
@@ -43,26 +111,83 @@ body {
   background-attachment: fixed;
 }
 
+/* ── NUMERI: incolonnati, sempre. Regola non negoziabile della direzione. ── */
+.num {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.01em;
+}
+
+/* etichetta tecnica da pannello di cronometraggio */
+.label {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--bone-dim);
+}
+
 /* bagliore sui numeri "timing" */
 .digit-glow {
   text-shadow: 0 0 14px rgba(198, 255, 58, 0.4);
 }
 
-/* pannello carbonio */
+/* ── superfici ── */
 .panel {
   background: linear-gradient(180deg, var(--carbon-850), var(--carbon-800));
   border: 1px solid var(--carbon-line);
+  box-shadow: var(--elev-2);
+}
+
+/* superficie del momento: più chiara in alto, filo di luce sul bordo superiore */
+.panel-hi {
+  background:
+    linear-gradient(180deg, rgba(198, 255, 58, 0.05), transparent 42%),
+    linear-gradient(180deg, var(--carbon-800), var(--carbon-850));
+  border: 1px solid var(--carbon-line);
+  box-shadow: var(--elev-3);
+}
+
+/* angolo tagliato in alto a destra: la firma formale */
+.chamfer {
+  clip-path: polygon(0 0, calc(100% - var(--chamfer)) 0, 100% var(--chamfer), 100% 100%, 0 100%);
 }
 
 /* barra accento verticale (stile pit-wall) */
 .accent-bar {
   box-shadow: inset 3px 0 0 var(--acid);
 }
+.panel.accent-bar {
+  box-shadow: inset 3px 0 0 var(--acid), var(--elev-2);
+}
+.panel-hi.accent-bar {
+  box-shadow: inset 3px 0 0 var(--acid), var(--elev-3);
+}
+
+/* riga di dati: separatore sottile, sfondo che si accende al tocco */
+.data-row {
+  border-top: 1px solid color-mix(in oklab, var(--carbon-line) 60%, transparent);
+  transition: background-color var(--dur-1) var(--ease-out);
+}
+.data-row:first-child {
+  border-top: 0;
+}
 
 ::selection {
   background: var(--acid);
   color: #0c0f11;
 }
+
+*:focus-visible {
+  outline: 2px solid var(--acid);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ─────────────────────────── movimento ───────────────────────────
+   Firma dell'app: l'ACCENSIONE A CASCATA. Le righe entrano in sequenza
+   come una torre dei tempi che si popola. Il passo lo dà --stagger.     */
 
 @keyframes riseIn {
   from {
@@ -75,8 +200,37 @@ body {
   }
 }
 .rise {
-  animation: riseIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: riseIn var(--dur-3) var(--ease-out) both;
 }
+
+@keyframes ignite {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scaleY(0.96);
+    filter: brightness(0.5);
+  }
+  55% {
+    filter: brightness(1.35);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+    filter: brightness(1);
+  }
+}
+/* si applica al contenitore: i figli si accendono uno dopo l'altro */
+.ignite > * {
+  animation: ignite var(--dur-4) var(--ease-out) both;
+}
+.ignite > *:nth-child(1) { animation-delay: calc(var(--stagger) * 0); }
+.ignite > *:nth-child(2) { animation-delay: calc(var(--stagger) * 1); }
+.ignite > *:nth-child(3) { animation-delay: calc(var(--stagger) * 2); }
+.ignite > *:nth-child(4) { animation-delay: calc(var(--stagger) * 3); }
+.ignite > *:nth-child(5) { animation-delay: calc(var(--stagger) * 4); }
+.ignite > *:nth-child(6) { animation-delay: calc(var(--stagger) * 5); }
+.ignite > *:nth-child(7) { animation-delay: calc(var(--stagger) * 6); }
+.ignite > *:nth-child(8) { animation-delay: calc(var(--stagger) * 7); }
+.ignite > *:nth-child(n + 9) { animation-delay: calc(var(--stagger) * 8); }
 
 @keyframes snapIn {
   0% {
@@ -92,5 +246,43 @@ body {
   }
 }
 .tile-snap {
-  animation: snapIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation: snapIn var(--dur-3) var(--ease-spring) both;
+}
+
+@keyframes sweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--carbon-850);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(238, 243, 241, 0.06), transparent);
+  animation: sweep 1.4s var(--ease-in-out) infinite;
+}
+
+/* Movimento ridotto: si annullano le animazioni MANTENENDO il contenuto visibile. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+  .ignite > *,
+  .rise,
+  .tile-snap {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+  .skeleton::after {
+    display: none;
+  }
 }

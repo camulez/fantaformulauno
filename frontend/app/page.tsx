@@ -2,140 +2,139 @@ import Link from "next/link";
 import { serverFetch } from "@/lib/api.server";
 import { BottomNav } from "@/components/BottomNav";
 import { LogoutButton } from "@/components/LogoutButton";
-import type { Me, PersonPublic, SeasonInfo, StandingsResult } from "@/lib/types";
+import { Screen, Main, Card, Label, Btn } from "@/components/ui";
+import type { Me, SeasonInfo, StandingsResult } from "@/lib/types";
+
+const LINKS = [
+  { href: "/report", label: "Report" },
+  { href: "/bacheca", label: "Bacheca" },
+  { href: "/impostazioni", label: "Regole" },
+  { href: "/profilo", label: "Profilo" },
+];
 
 export default async function HomePage() {
-  // Reindirizza a /login se non autenticato (serverFetch gestisce il 401).
+  // serverFetch reindirizza a /login se non autenticato
   const me = await serverFetch<Me>("/auth/me");
-  const people = await serverFetch<PersonPublic[]>("/auth/people");
 
-  // Resiliente: se la colonna total_rounds non è ancora applicata, l'indicatore si nasconde.
-  let season: SeasonInfo | null = null;
-  try {
-    season = await serverFetch<SeasonInfo>("/season/current");
-  } catch {
-    season = null;
-  }
-  let standings: StandingsResult | null = null;
-  try {
-    standings = await serverFetch<StandingsResult>("/standings/current");
-  } catch {
-    standings = null;
-  }
+  const [season, standings, myTeam] = await Promise.all([
+    serverFetch<SeasonInfo>("/season/current").catch(() => null),
+    serverFetch<StandingsResult>("/standings/current").catch(() => null),
+    serverFetch<{ teamId: string; name: string }>("/report/my-team").catch(() => null),
+  ]);
+
+  const teams = standings?.teams ?? [];
+  const myIndex = myTeam ? teams.findIndex((t) => t.teamId === myTeam.teamId) : -1;
+  const mine = myIndex >= 0 ? teams[myIndex] : null;
+  const leader = teams[0];
+  const gap = mine && leader ? leader.total - mine.total : 0;
+  const ultimoRound = standings?.rounds.at(-1);
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="flex items-center justify-between border-b border-line/70 px-5 py-4">
-        <div>
-          <p className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.3em] text-acid-deep">
-            FantaFormula1 · 2026
-          </p>
-          <h1 className="mt-0.5 text-2xl font-semibold uppercase tracking-wide text-bone">
+    <Screen>
+      <header className="relative overflow-hidden border-b border-line/70 px-5 pb-4 pt-4">
+        {/* Titolo sopra, collegamenti sotto: su schermo stretto affiancarli spezzava
+            il titolo su tre righe. */}
+        <div className="relative">
+          <Label className="text-acid-deep">FantaFormula1 · {season?.year ?? 2026}</Label>
+          <h1
+            className="mt-0.5 truncate font-semibold uppercase leading-none tracking-wide text-bone"
+            style={{ fontSize: "var(--text-3xl)" }}
+          >
             Box <span className="text-acid">{me.name}</span>
           </h1>
-        </div>
-        <div className="flex flex-col items-end gap-1.5">
-          <div className="flex gap-3">
-            <Link
-              href="/report"
-              className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-acid transition-colors hover:text-acid-deep"
-            >
-              Report
-            </Link>
-            <Link
-              href="/bacheca"
-              className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-bone-dim transition-colors hover:text-acid"
-            >
-              Bacheca
-            </Link>
-            <Link
-              href="/impostazioni"
-              className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-bone-dim transition-colors hover:text-acid"
-            >
-              Regole
-            </Link>
-            <Link
-              href="/profilo"
-              className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-bone-dim transition-colors hover:text-acid"
-            >
-              Profilo
-            </Link>
+          <div className="mt-3 flex items-center gap-4 border-t border-line/50 pt-2.5">
+            {LINKS.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                className="label transition-colors hover:text-acid"
+                style={{ transitionDuration: "var(--dur-1)" }}
+              >
+                {l.label}
+              </Link>
+            ))}
+            <span className="ml-auto">
+              <LogoutButton />
+            </span>
           </div>
-          <LogoutButton />
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-md flex-1 px-5 py-6">
-        <div className="mb-1 flex items-center justify-between">
-          <h2 className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-[0.25em] text-bone-dim">
-            Griglia {season?.year ?? 2026}
-          </h2>
-          <span className="rounded-full border border-line px-2 py-0.5 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-acid">
-            {season ? `R${season.roundsScored} / ${season.total_rounds}` : "Pre-season"}
-          </span>
-        </div>
-        {season && (
-          <p className="mb-4 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-bone-dim">
-            {season.roundsRemaining === season.total_rounds
-              ? `Stagione non avviata · ${season.total_rounds} gare in calendario`
-              : `${season.roundsRemaining} gare mancanti`}
-          </p>
+      <Main width="md" className="space-y-5">
+        {/* ── la tua posizione: il dato che interessa appena apri ── */}
+        {mine ? (
+          <Link href={`/squadra/${mine.teamId}`} className="block">
+            <Card tone="hi" accent chamfer className="rise px-5 pb-4 pt-4">
+              <div className="flex items-end justify-between gap-4">
+                <div className="min-w-0">
+                  <Label>La tua scuderia</Label>
+                  <p
+                    className="mt-0.5 truncate font-semibold uppercase leading-tight tracking-wide text-bone"
+                    style={{ fontSize: "var(--text-lg)" }}
+                  >
+                    {mine.name}
+                  </p>
+                  <p className="label mt-2 tracking-wider">
+                    {myIndex === 0 ? "in testa al mondiale" : `−${gap} dal leader`}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="num digit-glow font-bold leading-[0.85] text-acid" style={{ fontSize: "var(--text-4xl)" }}>
+                    {mine.total}
+                  </p>
+                  <p className="num mt-1 text-sm text-bone-dim">{myIndex + 1}° su {teams.length}</p>
+                </div>
+              </div>
+            </Card>
+          </Link>
+        ) : (
+          <Card tone="hi" chamfer className="px-5 py-6 text-center">
+            <p className="label leading-relaxed">Nessuna scuderia collegata al tuo profilo.</p>
+          </Card>
         )}
 
-        {standings && standings.rounds.length > 0 && (
-          <div className="mb-5">
-            <p className="mb-1.5 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.25em] text-bone-dim">
-              Round disputati
-            </p>
-            <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1">
-              {standings.rounds.map((r) => (
-                <Link
-                  key={r.round_no}
-                  href={`/round/${r.round_no}`}
-                  className="flex shrink-0 flex-col items-center rounded-lg border border-line px-3 py-1.5 text-bone-dim transition-colors hover:border-acid hover:text-acid"
-                >
-                  <span className="font-[family-name:var(--font-mono)] text-xs font-bold">R{r.round_no}</span>
-                  <span className="font-[family-name:var(--font-mono)] text-[9px] tracking-wider">{r.code}</span>
-                </Link>
-              ))}
-            </div>
+        {/* ── stato della stagione ── */}
+        {season && (
+          <div className="flex items-center justify-between px-1">
+            <Label>Stagione {season.year}</Label>
+            <span className="num text-sm text-bone-dim">
+              <span className="text-acid">{season.roundsScored}</span> / {season.total_rounds} gare
+            </span>
           </div>
         )}
 
-        <ol className="space-y-2">
-          {people.map((p, i) => (
-            <li
-              key={p.id}
-              className="rise panel flex items-center gap-4 rounded-lg px-4 py-3"
-              style={{ animationDelay: `${i * 55}ms` }}
-            >
-              <span className="w-6 font-[family-name:var(--font-mono)] text-lg font-bold text-bone-dim">
-                {i + 1}
-              </span>
-              <span className="flex-1 text-lg font-semibold uppercase tracking-wide text-bone">
-                {p.name}
-              </span>
-              <span className="font-[family-name:var(--font-mono)] text-sm text-bone-dim">
-                — pt
-              </span>
-            </li>
-          ))}
-        </ol>
+        {/* ── i round disputati ── */}
+        {standings && standings.rounds.length > 0 && (
+          <section>
+            <Label>Round disputati</Label>
+            <div className="-mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-1">
+              {standings.rounds.map((r) => (
+                <Link
+                  key={r.round_no}
+                  href={`/report/${r.round_no}`}
+                  className="panel flex shrink-0 flex-col items-center rounded-lg px-3 py-2 text-bone-dim transition-colors hover:border-acid hover:text-acid"
+                  style={{ transitionDuration: "var(--dur-1)" }}
+                >
+                  <span className="num text-sm font-bold text-bone">{r.code ?? `R${r.round_no}`}</span>
+                  <span className="num text-[10px]">R{r.round_no}</span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
 
-        <Link
-          href="/inserisci"
-          className="mt-6 flex items-center justify-center gap-2 rounded-xl border border-acid/40 bg-acid/5 py-3 font-[family-name:var(--font-mono)] text-xs font-bold uppercase tracking-widest text-acid transition-colors hover:bg-acid/10"
-        >
-          + Inserisci risultati gara
-        </Link>
-
-        <p className="mt-6 text-center font-[family-name:var(--font-mono)] text-[11px] uppercase leading-relaxed tracking-widest text-bone-dim">
-          Campionato non ancora avviato.<br />
-          Punti e classifica arriveranno dai risultati di gara.
-        </p>
-      </main>
+        {/* ── azioni ── */}
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          <Btn href="/inserisci" variant="outline">
+            Inserisci gara
+          </Btn>
+          <Btn href={ultimoRound ? `/report/${ultimoRound.round_no}` : "/report"} variant="quiet">
+            Ultimo report
+          </Btn>
+        </div>
+      </Main>
 
       <BottomNav />
-    </div>
+    </Screen>
   );
 }

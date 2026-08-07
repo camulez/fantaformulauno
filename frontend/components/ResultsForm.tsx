@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { clientFetch } from "@/lib/api";
 import type { Driver, ReferenceData, RoundResults } from "@/lib/types";
+import { BoltIcon, CheckIcon } from "@/components/icons";
 
 const RACE_POS = 10;
 const SPRINT_POS = 8;
@@ -116,8 +117,8 @@ export function ResultsForm() {
               <span className="font-[family-name:var(--font-mono)] text-xs font-bold">R{r.round_no}</span>
               <span className="font-[family-name:var(--font-mono)] text-[9px] tracking-wider">
                 {r.code}
-                {r.has_sprint ? " ⚡" : ""}
-                {r.status === "scored" ? " ✓" : ""}
+                {r.has_sprint ? <BoltIcon className="ml-1 inline h-3 w-3 align-[-1px]" /> : null}
+                {r.status === "scored" ? <CheckIcon className="ml-1 inline h-3 w-3 align-[-1px]" /> : null}
               </span>
             </button>
           );
@@ -137,7 +138,7 @@ export function ResultsForm() {
               R{selected.round_no} · {selected.name}
             </h2>
             {selected.has_sprint && (
-              <span className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-acid">Sprint ⚡</span>
+              <span className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-acid"><BoltIcon className="mr-1 inline h-3 w-3 align-[-1px]" />Sprint</span>
             )}
           </div>
 

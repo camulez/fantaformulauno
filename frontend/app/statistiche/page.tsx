@@ -6,6 +6,7 @@ import { HeadToHead } from "@/components/HeadToHead";
 import { teamColor } from "@/lib/chartColors";
 import { shortName as short } from "@/lib/shortName";
 import type { Me, StandingsResult } from "@/lib/types";
+import { BoltIcon, ChartIcon, FlagIcon } from "@/components/icons";
 
 export default async function StatistichePage() {
   await serverFetch<Me>("/auth/me");
@@ -81,17 +82,17 @@ export default async function StatistichePage() {
               </h2>
               <ul className="space-y-1.5 font-[family-name:var(--font-mono)] text-xs">
                 <li className="flex items-center justify-between">
-                  <span className="text-bone-dim">🏁 Più GP vinti</span>
+                  <span className="flex items-center gap-1.5 text-bone-dim"><FlagIcon className="h-3.5 w-3.5" />Più GP vinti</span>
                   <span className="text-bone">{mostWins ? `${short(mostWins.name)} · ${mostWins.gpWins}` : "—"}</span>
                 </li>
                 <li className="flex items-center justify-between">
-                  <span className="text-bone-dim">⚡ Miglior round</span>
+                  <span className="flex items-center gap-1.5 text-bone-dim"><BoltIcon className="h-3.5 w-3.5" />Miglior round</span>
                   <span className="text-bone">
                     {bestRound.points > 0 ? `${bestRound.name} · ${bestRound.round} · +${bestRound.points}` : "—"}
                   </span>
                 </li>
                 <li className="flex items-center justify-between">
-                  <span className="text-bone-dim">📊 Distacco leader-ultimo</span>
+                  <span className="flex items-center gap-1.5 text-bone-dim"><ChartIcon className="h-3.5 w-3.5" />Distacco leader-ultimo</span>
                   <span className="text-bone">{gap} pt</span>
                 </li>
               </ul>

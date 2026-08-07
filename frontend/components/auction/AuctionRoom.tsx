@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { clientFetch } from "@/lib/api";
 import type { AuctionSlot, AuctionState } from "@/lib/types";
 import { AuctionBoard } from "./AuctionBoard";
+import { CheckIcon, FlagIcon, XIcon } from "@/components/icons";
 
 const SLOT_LABEL: Record<AuctionSlot, string> = {
   telaio: "Telaio",
@@ -155,7 +156,7 @@ export function AuctionRoom() {
                   disabled={busy || missing === 0}
                   className={`${btn} border border-line text-bone hover:border-acid disabled:border-line/40`}
                 >
-                  {missing === 0 ? `✓ ${SLOT_LABEL[slot]}` : `Avvia ${SLOT_LABEL[slot]}`}
+                  {missing === 0 ? (<><CheckIcon className="mr-1 inline h-3 w-3 align-[-1px]" />{SLOT_LABEL[slot]}</>) : `Avvia ${SLOT_LABEL[slot]}`}
                 </button>
               );
             })}
@@ -186,7 +187,7 @@ export function AuctionRoom() {
                 <option value="">Squadra…</option>
                 {activeIds.map((id) => (
                   <option key={id} value={id}>
-                    {teamName(id)}{round.slips.some((s) => s.teamId === id) ? " ✓" : ""}
+                    {teamName(id)}{round.slips.some((s) => s.teamId === id) ? " ·" : ""}
                   </option>
                 ))}
               </select>
@@ -212,7 +213,7 @@ export function AuctionRoom() {
                     <span className="text-bone"><span className="text-acid">{teamName(s.teamId)}</span> → {byId.get(s.componentId)?.name}</span>
                     <span className="flex items-center gap-2 font-[family-name:var(--font-mono)] text-xs text-bone-dim">
                       {s.amount}
-                      <button onClick={() => act("/auction/unbid", { teamId: s.teamId })} className="text-bone-dim hover:text-red">✕</button>
+                      <button onClick={() => act("/auction/unbid", { teamId: s.teamId })} className="text-bone-dim hover:text-red" aria-label="Rimuovi"><XIcon className="h-3.5 w-3.5" /></button>
                     </span>
                   </li>
                 ))}
@@ -228,7 +229,7 @@ export function AuctionRoom() {
         {/* Asta completa */}
         {state.allFull && !round && (
           <div className="space-y-2 text-center">
-            <p className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-widest text-acid">🏁 Tutti i garage sono pieni</p>
+            <p className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-widest text-acid"><FlagIcon className="mr-1.5 inline h-3.5 w-3.5 align-[-2px]" />Tutti i garage sono pieni</p>
             {committed ? (
               <p className="font-[family-name:var(--font-mono)] text-xs text-acid">Roster scritti. L&apos;asta è conclusa.</p>
             ) : (

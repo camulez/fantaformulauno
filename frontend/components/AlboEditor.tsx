@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { clientFetch } from "@/lib/api";
 import type { AlboSeasonRow, PersonPublic } from "@/lib/types";
+import { TrophyIcon } from "@/components/icons";
 
 export function AlboEditor({
   people,
@@ -103,7 +104,7 @@ export function AlboEditor({
         />
 
         <label className="mb-1 block font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-bone-dim">
-          🏆 Campione
+          Campione
         </label>
         <select value={championId} onChange={(e) => setChampionId(e.target.value)} className={`${selectCls} mb-3`}>
           <option value="">— nessuno —</option>
@@ -163,7 +164,7 @@ export function AlboEditor({
                 <span className="w-12 font-[family-name:var(--font-mono)] text-lg font-bold text-acid">{s.year}</span>
                 <div className="min-w-0 flex-1 space-y-0.5">
                   <p className="truncate text-sm text-bone">
-                    <span className="text-acid-deep">🏆</span> {s.championName ?? "—"}
+                    <TrophyIcon className="inline h-3.5 w-3.5 text-acid-deep" /> {s.championName ?? "—"}
                   </p>
                   <p className="truncate font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-wider text-bone-dim">
                     Coppa TM: {s.tmCupName ?? "—"}

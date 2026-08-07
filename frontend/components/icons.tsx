@@ -100,3 +100,30 @@ export function SteeringIcon({ className }: IconProps) {
     </Svg>
   );
 }
+
+// Sprint — saetta
+export function BoltIcon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M13 2 4.5 13.5H11l-1 8.5 8.5-11.5H12l1-8.5Z" />
+    </Svg>
+  );
+}
+
+// Confermato — spunta
+export function CheckIcon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="m4 12.5 5 5L20 6.5" />
+    </Svg>
+  );
+}
+
+// Rimuovi — croce
+export function XIcon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M6 6l12 12M18 6 6 18" />
+    </Svg>
+  );
+}

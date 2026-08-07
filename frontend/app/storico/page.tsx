@@ -2,6 +2,7 @@ import Link from "next/link";
 import { serverFetch } from "@/lib/api.server";
 import { BottomNav } from "@/components/BottomNav";
 import type { HistoryData, Me } from "@/lib/types";
+import { TrophyIcon } from "@/components/icons";
 
 export default async function StoricoPage() {
   await serverFetch<Me>("/auth/me");
@@ -29,7 +30,7 @@ export default async function StoricoPage() {
       <main className="mx-auto w-full max-w-md flex-1 space-y-5 px-4 py-5">
         {empty ? (
           <div className="panel accent-bar mt-6 rounded-xl px-5 py-10 text-center">
-            <p className="font-[family-name:var(--font-mono)] text-3xl">🏆</p>
+            <TrophyIcon className="mx-auto h-8 w-8 text-acid-deep" />
             <p className="mt-3 font-[family-name:var(--font-mono)] text-[11px] uppercase leading-relaxed tracking-widest text-bone-dim">
               Nessuna stagione in archivio.<br />
               Aggiungi i campioni delle stagioni passate<br />
@@ -55,7 +56,7 @@ export default async function StoricoPage() {
                     <span className="w-12 font-[family-name:var(--font-mono)] text-lg font-bold text-acid">{r.year}</span>
                     <div className="min-w-0 flex-1 space-y-0.5">
                       <p className="truncate text-sm text-bone">
-                        <span className="text-acid-deep">🏆 Campione:</span> {r.champion ?? "—"}
+                        <span className="text-acid-deep">Campione:</span> {r.champion ?? "—"}
                       </p>
                       <p className="truncate font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-wider text-bone-dim">
                         Coppa TM: {r.tmCup ?? "—"}
@@ -75,7 +76,7 @@ export default async function StoricoPage() {
                 <thead>
                   <tr className="text-[9px] uppercase tracking-widest text-bone-dim">
                     <th className="py-1 text-left font-normal">Persona</th>
-                    <th className="py-1 text-right font-normal">🏆 Titoli</th>
+                    <th className="py-1 text-right font-normal">Titoli</th>
                     <th className="py-1 text-right font-normal">Coppe TM</th>
                     <th className="py-1 text-right font-normal">Stagioni</th>
                   </tr>
