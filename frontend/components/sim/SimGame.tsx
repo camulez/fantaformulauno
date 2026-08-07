@@ -5,6 +5,7 @@
 // linea centrale (lib/sim/track.ts), quindi corrispondono per costruzione.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import * as THREE from "three";
 import { buildGeometry, getTrack, worldAt, rightNormal } from "@/lib/sim/track";
 import { createCar, step, TICK, formatTime, isOffTrack, assistedBrake, CarState } from "@/lib/sim/physics";
@@ -298,11 +299,12 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
       disposables.push({ dispose: () => inst.dispose() });
     }
 
-    // ── palazzi (Monaco è cittadino): volumi semplici ma illuminati ──
+    // ── palazzi: fitti e vicini sui cittadini, radi e lontani negli autodromi ──
+    const city = def.scenery === "city";
     {
       const g = track(new THREE.BoxGeometry(1, 1, 1));
       const m = track(new THREE.MeshLambertMaterial({ color: 0xffffff }));
-      const step = 6;
+      const step = city ? 6 : 16;
       const count = Math.floor(n / step) * 2;
       const inst = new THREE.InstancedMesh(g, m, count);
       inst.castShadow = true;
@@ -323,10 +325,11 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
           const r1 = rnd(i, side + 1);
           const r2 = rnd(i, side + 7);
           const r3 = rnd(i, side + 13);
-          const dist = hw + 18 + r1 * 30;
-          const w = 10 + r2 * 16;
-          const hgt = 7 + r3 * 24;
-          const d = 10 + r1 * 14;
+          // in un autodromo le costruzioni stanno lontane e basse: niente grattacieli a Monza
+          const dist = city ? hw + 22 + r1 * 34 : hw + 55 + r1 * 60;
+          const w = city ? 10 + r2 * 16 : 14 + r2 * 20;
+          const hgt = city ? 9 + r3 * 24 : 5 + r3 * 8;
+          const d = city ? 10 + r1 * 14 : 12 + r1 * 16;
           const px = p.x + nx * dist * side;
           const pz = p.z + nz * dist * side;
           // il palazzo deve stare lontano da OGNI punto della pista, non solo da questo
@@ -355,7 +358,7 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
     {
       const g = track(new THREE.ConeGeometry(2.3, 7.5, 6));
       const m = track(new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true }));
-      const step = 9;
+      const step = city ? 12 : 5; // negli autodromi il verde è protagonista
       const inst = new THREE.InstancedMesh(g, m, Math.floor(n / step) * 2);
       inst.castShadow = true;
       const dummy = new THREE.Object3D();
@@ -368,8 +371,8 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
         for (const side of [-1, 1]) {
           const r1 = rnd(i, side + 31);
           const r2 = rnd(i, side + 47);
-          if (r1 < 0.45) continue; // non ovunque: alberi sparsi
-          const dist = hw + 5.5 + r2 * 7;
+          if (r1 < (city ? 0.6 : 0.25)) continue; // alberi sparsi, più fitti negli autodromi
+          const dist = hw + 5.5 + r2 * (city ? 7 : 16);
           const px = p.x + nx * dist * side;
           const pz = p.z + nz * dist * side;
           if (clearOf(px, pz) < hw + 4) continue;
@@ -723,7 +726,10 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
       {/* schermate */}
       {phase === "ready" && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-carbon-950/75 px-8 text-center backdrop-blur-sm">
-          <p className={`${mono} text-[10px] uppercase tracking-[0.3em] text-acid`}>Simulatore</p>
+          <Link href="/simulatore" className={`${mono} text-[10px] uppercase tracking-widest text-bone-dim hover:text-acid`}>
+            ← Cambia circuito
+          </Link>
+          <p className={`${mono} text-[10px] uppercase tracking-[0.3em] text-acid`}>R{def.roundNo} · Simulatore</p>
           <h2 className="text-3xl font-semibold uppercase tracking-wide text-bone">{def.name}</h2>
           <p className={`${mono} text-[11px] leading-relaxed tracking-wider text-bone-dim`}>
             Un giro di riscaldamento per prendere le misure,

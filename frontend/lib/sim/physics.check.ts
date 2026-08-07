@@ -92,6 +92,7 @@ const geom = buildGeometry(MONACO);
     code: "TST",
     name: "Quadrato a destra",
     roadWidth: 10,
+    scenery: "park",
     ops: [
       { kind: "s", len: 120 }, { kind: "t", len: 90, deg: 90 },
       { kind: "s", len: 120 }, { kind: "t", len: 90, deg: 90 },
