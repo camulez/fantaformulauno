@@ -26,6 +26,27 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
   const lapStartRef = useRef(0);
   const timeRef = useRef(0);
 
+  // Frenata: assistita (l'auto frena da sola per la curva) o manuale (tutto al pilota).
+  // La preferenza resta memorizzata sul dispositivo.
+  const [assistEnabled, setAssistEnabled] = useState(true);
+  const assistEnabledRef = useRef(true);
+  useEffect(() => {
+    const saved = typeof window !== "undefined" ? window.localStorage.getItem("ffuno-sim-assist") : null;
+    if (saved === "0") {
+      setAssistEnabled(false);
+      assistEnabledRef.current = false;
+    }
+  }, []);
+  const chooseAssist = useCallback((on: boolean) => {
+    setAssistEnabled(on);
+    assistEnabledRef.current = on;
+    try {
+      window.localStorage.setItem("ffuno-sim-assist", on ? "1" : "0");
+    } catch {
+      /* modalità privata: pazienza, resta solo per questa sessione */
+    }
+  }, []);
+
   const [phase, setPhase] = useState<Phase>("ready");
   const [hud, setHud] = useState({ speed: 0, time: 0, u: 0, fps: 0, off: false, assist: false });
   const [result, setResult] = useState<number | null>(null);
@@ -449,8 +470,8 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
         acc += dtReal;
         let guard = 0;
         while (acc >= TICK && guard < 12) {
-          // frenata assistita: frena da sola per la curva in arrivo
-          assistOn = assistedBrake(car, geom);
+          // frenata assistita (se scelta): frena da sola per la curva in arrivo
+          assistOn = assistEnabledRef.current && assistedBrake(car, geom);
           step(
             car,
             { steer: inputRef.current.steer, brake: inputRef.current.brake || assistOn },
@@ -711,6 +732,37 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
             <br />
             Tieni premuto a sinistra o a destra per sterzare.
           </p>
+
+          {/* scelta della frenata */}
+          <div className="mt-1 w-full max-w-xs">
+            <p className={`${mono} mb-2 text-[10px] uppercase tracking-widest text-bone-dim`}>Frenata</p>
+            <div className="flex rounded-xl border border-line p-1">
+              <button
+                onClick={() => chooseAssist(true)}
+                aria-pressed={assistEnabled}
+                className={`${mono} flex-1 rounded-lg px-3 py-2 text-[11px] font-bold uppercase tracking-widest transition-colors ${
+                  assistEnabled ? "bg-acid text-carbon-950" : "text-bone-dim"
+                }`}
+              >
+                Assistita
+              </button>
+              <button
+                onClick={() => chooseAssist(false)}
+                aria-pressed={!assistEnabled}
+                className={`${mono} flex-1 rounded-lg px-3 py-2 text-[11px] font-bold uppercase tracking-widest transition-colors ${
+                  !assistEnabled ? "bg-acid text-carbon-950" : "text-bone-dim"
+                }`}
+              >
+                Manuale
+              </button>
+            </div>
+            <p className={`${mono} mt-2 text-[10px] leading-relaxed tracking-wider text-bone-dim`}>
+              {assistEnabled
+                ? "L'auto frena da sola per la curva in arrivo."
+                : "Freni tu: più veloce, ma sbagli e sei fuori."}
+            </p>
+          </div>
+
           <button
             onClick={start}
             className={`${mono} mt-2 rounded-xl bg-acid px-8 py-3 text-sm font-bold uppercase tracking-widest text-carbon-950`}
@@ -724,6 +776,9 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-carbon-950/80 px-8 text-center backdrop-blur-sm">
           <p className={`${mono} text-[10px] uppercase tracking-[0.3em] text-acid`}>Giro completato</p>
           <p className={`${mono} text-4xl font-bold text-bone`}>{formatTime(result)}</p>
+          <p className={`${mono} text-[10px] uppercase tracking-widest text-bone-dim`}>
+            Frenata {assistEnabled ? "assistita" : "manuale"}
+          </p>
           {best !== null && (
             <p className={`${mono} text-[11px] uppercase tracking-widest text-bone-dim`}>
               Tuo miglior tempo: <span className="text-acid">{formatTime(best)}</span>
