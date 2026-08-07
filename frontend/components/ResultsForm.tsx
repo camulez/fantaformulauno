@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { clientFetch } from "@/lib/api";
+import { Btn, Field, Label, Note, Section, fieldCls, StickyBar } from "@/components/ui";
 import type { Driver, ReferenceData, RoundResults } from "@/lib/types";
 import { BoltIcon, CheckIcon } from "@/components/icons";
 
@@ -88,21 +89,17 @@ export function ResultsForm() {
   }
 
   if (error && !ref) {
-    return <p className="px-5 py-8 font-[family-name:var(--font-mono)] text-sm text-red">{error}</p>;
+    return <p className="num px-5 py-8 text-sm text-red">{error}</p>;
   }
   if (!ref) {
     return (
-      <p className="px-5 py-8 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-bone-dim">
-        Caricamento anagrafica…
-      </p>
+      <p className="note px-5 py-8">Caricamento anagrafica…</p>
     );
   }
 
   return (
     <div className="px-4 pb-28">
-      <p className="mb-2 mt-2 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.25em] text-bone-dim">
-        Scegli il round
-      </p>
+      <Label className="mb-2 mt-2 block">Scegli il round</Label>
       <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-2">
         {ref.rounds.map((r) => {
           const active = r.round_no === roundNo;
@@ -110,12 +107,13 @@ export function ResultsForm() {
             <button
               key={r.id}
               onClick={() => loadRound(r.round_no)}
-              className={`flex shrink-0 flex-col items-center rounded-lg border px-3 py-2 transition-colors ${
+              className={`num flex shrink-0 flex-col items-center rounded-lg border px-3 py-2 transition-colors ${
                 active ? "border-acid bg-acid/10 text-acid" : "border-line text-bone-dim hover:border-bone-dim hover:text-bone"
               }`}
+              style={{ transitionDuration: "var(--dur-1)" }}
             >
-              <span className="font-[family-name:var(--font-mono)] text-xs font-bold">R{r.round_no}</span>
-              <span className="font-[family-name:var(--font-mono)] text-[9px] tracking-wider">
+              <span className="text-xs font-bold">R{r.round_no}</span>
+              <span className="text-[9px] tracking-wider">
                 {r.code}
                 {r.has_sprint ? <BoltIcon className="ml-1 inline h-3 w-3 align-[-1px]" /> : null}
                 {r.status === "scored" ? <CheckIcon className="ml-1 inline h-3 w-3 align-[-1px]" /> : null}
@@ -126,9 +124,7 @@ export function ResultsForm() {
       </div>
 
       {!selected && (
-        <p className="mt-8 text-center font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-widest text-bone-dim">
-          Seleziona un round per inserire l'ordine d'arrivo
-        </p>
+        <p className="note mt-8 text-center">Seleziona un round per inserire l&apos;ordine d&apos;arrivo.</p>
       )}
 
       {selected && (
@@ -138,25 +134,23 @@ export function ResultsForm() {
               R{selected.round_no} · {selected.name}
             </h2>
             {selected.has_sprint && (
-              <span className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-acid"><BoltIcon className="mr-1 inline h-3 w-3 align-[-1px]" />Sprint</span>
+              <Label className="text-acid">
+                <BoltIcon className="mr-1 inline h-3 w-3 align-[-1px]" />
+                Sprint
+              </Label>
             )}
           </div>
 
-          <label className="mb-4 block">
-            <span className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-bone-dim">
-              Punto Pole (miglior tempo in Qualifying)
-            </span>
-            <select
-              value={pole}
-              onChange={(e) => setPole(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-line bg-panel px-3 py-2 text-sm text-bone outline-none focus:border-acid"
-            >
-              <option value="">— nessuna —</option>
-              {drivers.map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
-          </label>
+          <div className="mb-4">
+            <Field label="Punto Pole (miglior tempo in Qualifying)">
+              <select value={pole} onChange={(e) => setPole(e.target.value)} className={`${fieldCls} text-sm`}>
+                <option value="">— nessuna —</option>
+                {drivers.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+            </Field>
+          </div>
 
           <PositionGrid title="Ordine d'arrivo — Race (Top 10)" scale={raceScale} values={race} drivers={drivers} onChange={setRace} />
 
@@ -168,22 +162,16 @@ export function ResultsForm() {
 
           <label className="mt-4 flex items-center gap-2">
             <input type="checkbox" checked={markScored} onChange={(e) => setMarkScored(e.target.checked)} className="h-4 w-4 accent-[var(--acid)]" />
-            <span className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-bone-dim">
-              Segna round come disputato
-            </span>
+            <Label>Segna round come disputato</Label>
           </label>
 
-          <div className="fixed inset-x-0 bottom-16 z-10 mx-auto max-w-md px-4">
-            <button
-              onClick={save}
-              disabled={saving}
-              className="w-full rounded-xl bg-acid py-3 font-[family-name:var(--font-mono)] text-sm font-bold uppercase tracking-widest text-carbon-950 transition-opacity disabled:opacity-50"
-            >
+          <StickyBar>
+            <Btn onClick={save} disabled={saving} size="lg" full>
               {saving ? "Salvataggio…" : `Salva R${selected.round_no}`}
-            </button>
-            {msg && <p className="mt-2 text-center font-[family-name:var(--font-mono)] text-xs text-acid">{msg}</p>}
-            {error && <p className="mt-2 text-center font-[family-name:var(--font-mono)] text-xs text-red">{error}</p>}
-          </div>
+            </Btn>
+            <Note tone="ok">{msg}</Note>
+            <Note tone="err">{error}</Note>
+          </StickyBar>
         </>
       )}
     </div>
@@ -204,15 +192,14 @@ function PositionGrid({
   onChange: (v: string[]) => void;
 }) {
   return (
-    <div className="panel rounded-lg p-3">
-      <p className="mb-2 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-acid-deep">{title}</p>
+    <Section title={title} className="rounded-lg">
       <div className="space-y-1">
         {values.map((val, i) => {
           const used = new Set(values.filter((_, j) => j !== i).filter(Boolean));
           return (
             <div key={i} className="flex items-center gap-2">
-              <span className="w-6 shrink-0 font-[family-name:var(--font-mono)] text-xs font-bold text-bone-dim">P{i + 1}</span>
-              <span className="w-6 shrink-0 text-right font-[family-name:var(--font-mono)] text-xs text-acid">{scale[i] ?? 0}</span>
+              <span className="num w-6 shrink-0 text-xs font-bold text-bone-dim">P{i + 1}</span>
+              <span className="num w-6 shrink-0 text-right text-xs text-acid">{scale[i] ?? 0}</span>
               <select
                 value={val}
                 onChange={(e) => {
@@ -233,6 +220,6 @@ function PositionGrid({
           );
         })}
       </div>
-    </div>
+    </Section>
   );
 }

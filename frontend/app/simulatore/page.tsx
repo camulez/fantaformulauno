@@ -2,10 +2,9 @@ import Link from "next/link";
 import { serverFetch } from "@/lib/api.server";
 import { BottomNav } from "@/components/BottomNav";
 import { SimLoader } from "@/components/sim/SimLoader";
+import { Screen, Main, PageHeader } from "@/components/ui";
 import { TRACKS, buildGeometry, minRadius } from "@/lib/sim/track";
 import type { Me, StandingsResult } from "@/lib/types";
-
-const mono = "font-[family-name:var(--font-mono)]";
 
 export default async function SimulatorePage({
   searchParams,
@@ -16,15 +15,16 @@ export default async function SimulatorePage({
   const { r } = await searchParams;
   const roundNo = Number(r);
 
-  // Circuito scelto: si guida.
+  // Circuito scelto: si guida. La scena 3D ha un linguaggio proprio (DESIGN.md),
+  // qui si allineano solo i contorni: nessuna testata sopra il gioco.
   if (Number.isInteger(roundNo) && TRACKS.some((t) => t.roundNo === roundNo)) {
     return (
-      <div className="flex min-h-screen flex-col">
+      <Screen>
         <main className="flex-1">
           <SimLoader roundNo={roundNo} />
         </main>
         <BottomNav />
-      </div>
+      </Screen>
     );
   }
 
@@ -51,31 +51,31 @@ export default async function SimulatorePage({
   });
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="border-b border-line/70 px-5 py-4">
-        <p className={`${mono} text-[10px] uppercase tracking-[0.3em] text-acid-deep`}>Simulatore</p>
-        <h1 className="mt-0.5 text-2xl font-semibold uppercase tracking-wide text-bone">Scegli il circuito</h1>
-        <p className={`${mono} mt-1 text-[10px] uppercase tracking-widest text-bone-dim`}>
-          {TRACKS.length} tracciati · un giro di riscaldamento e uno cronometrato
-        </p>
-      </header>
+    <Screen>
+      <PageHeader
+        kicker="Simulatore"
+        title="Scegli il circuito"
+        subtitle={`${TRACKS.length} tracciati · un giro di riscaldamento e uno cronometrato`}
+        size="lg"
+      />
 
-      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-4">
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <Main width="lg">
+        <div className="ignite grid grid-cols-2 gap-2 sm:grid-cols-3">
           {cards.map((c) => {
             const disputato = corsi.has(c.roundNo);
             return (
               <Link
                 key={c.roundNo}
                 href={`/simulatore?r=${c.roundNo}`}
-                className="panel group rounded-xl border border-line/60 p-3 transition-colors hover:border-acid/50"
+                className="panel rounded-xl p-3 transition-colors hover:border-acid/50"
+                style={{ transitionDuration: "var(--dur-1)" }}
               >
                 <div className="flex items-baseline justify-between">
-                  <span className={`${mono} text-lg font-bold text-acid`}>{c.code}</span>
-                  <span className={`${mono} text-[9px] uppercase tracking-widest text-bone-dim`}>R{c.roundNo}</span>
+                  <span className="num text-lg font-bold text-acid">{c.code}</span>
+                  <span className="label">R{c.roundNo}</span>
                 </div>
                 <p className="mt-0.5 truncate text-xs font-semibold text-bone">{c.name}</p>
-                <p className={`${mono} mt-1 text-[9px] uppercase tracking-wider text-bone-dim`}>
+                <p className="label mt-1 tracking-wider">
                   {c.km} km · curva {c.curva} m
                   {disputato && <span className="text-acid-deep"> · corso</span>}
                 </p>
@@ -83,9 +83,9 @@ export default async function SimulatorePage({
             );
           })}
         </div>
-      </main>
+      </Main>
 
       <BottomNav />
-    </div>
+    </Screen>
   );
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { clientFetch } from "@/lib/api";
+import { Btn, Card, Chip, Label, Note } from "@/components/ui";
 import type { SeasonInfo } from "@/lib/types";
 
 export function SeasonCycle({ season }: { season: SeasonInfo | null }) {
@@ -36,22 +37,17 @@ export function SeasonCycle({ season }: { season: SeasonInfo | null }) {
     }
   }
 
-  const btn =
-    "w-full rounded-lg px-4 py-2.5 font-[family-name:var(--font-mono)] text-xs font-bold uppercase tracking-widest transition-opacity disabled:opacity-40";
-
   return (
-    <div className="panel accent-bar rounded-xl p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <p className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.25em] text-acid">
-          Ciclo stagionale
-        </p>
-        <span className="rounded-full border border-line px-2 py-0.5 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-bone-dim">
+    <Card accent className="p-4">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <Label className="text-acid">Ciclo stagionale</Label>
+        <Chip>
           {season.year} · {closed ? "chiusa" : season.status}
-        </span>
+        </Chip>
       </div>
 
       {!closed ? (
-        <button
+        <Btn
           onClick={() =>
             run(
               "close",
@@ -60,22 +56,21 @@ export function SeasonCycle({ season }: { season: SeasonInfo | null }) {
             )
           }
           disabled={busy !== null}
-          className={`${btn} bg-acid text-carbon-950`}
+          full
         >
           {busy === "close" ? "Archiviazione…" : `Chiudi e archivia stagione ${season.year}`}
-        </button>
+        </Btn>
       ) : (
         <div className="space-y-2">
-          <button
-            onClick={() =>
-              run("reopen", "/rollover/reopen", `Riaprire la stagione ${season.year} per correzioni?`)
-            }
+          <Btn
+            onClick={() => run("reopen", "/rollover/reopen", `Riaprire la stagione ${season.year} per correzioni?`)}
             disabled={busy !== null}
-            className={`${btn} border border-line text-bone hover:border-acid`}
+            variant="quiet"
+            full
           >
             {busy === "reopen" ? "…" : `Riapri stagione ${season.year}`}
-          </button>
-          <button
+          </Btn>
+          <Btn
             onClick={() =>
               run(
                 "new",
@@ -84,19 +79,19 @@ export function SeasonCycle({ season }: { season: SeasonInfo | null }) {
               )
             }
             disabled={busy !== null}
-            className={`${btn} bg-acid text-carbon-950`}
+            full
           >
             {busy === "new" ? "Creazione…" : `Apri stagione ${season.year + 1}`}
-          </button>
+          </Btn>
         </div>
       )}
 
-      {msg && <p className="mt-3 font-[family-name:var(--font-mono)] text-[11px] leading-relaxed text-acid">{msg}</p>}
-      {error && <p className="mt-3 font-[family-name:var(--font-mono)] text-xs text-red">{error}</p>}
-      <p className="mt-3 font-[family-name:var(--font-mono)] text-[10px] leading-relaxed tracking-wider text-bone-dim">
-        La chiusura calcola classifica finale, campione e Coppa TM dai risultati e li scrive nell'albo. È ripetibile e
-        correggibile (riapri, poi richiudi).
+      <Note tone="ok">{msg}</Note>
+      <Note tone="err">{error}</Note>
+      <p className="note mt-3">
+        La chiusura calcola classifica finale, campione e Coppa TM dai risultati e li scrive nell&apos;albo. È ripetibile
+        e correggibile (riapri, poi richiudi).
       </p>
-    </div>
+    </Card>
   );
 }

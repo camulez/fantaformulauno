@@ -3,6 +3,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { CumulativeChart } from "@/components/charts/CumulativeChart";
 import { CategoryDonuts } from "@/components/charts/CategoryDonuts";
 import { HeadToHead } from "@/components/HeadToHead";
+import { Screen, Main, PageHeader, Section, DataTable, Empty, Btn } from "@/components/ui";
 import { teamColor } from "@/lib/chartColors";
 import { shortName as short } from "@/lib/shortName";
 import type { Me, StandingsResult } from "@/lib/types";
@@ -34,118 +35,110 @@ export default async function StatistichePage() {
   const gap = (colored[0]?.total ?? 0) - (colored[colored.length - 1]?.total ?? 0);
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="border-b border-line/70 px-5 py-4">
-        <p className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.3em] text-acid-deep">
-          FantaFormula1
-        </p>
-        <h1 className="mt-0.5 text-2xl font-semibold uppercase tracking-wide text-bone">Dati</h1>
-      </header>
+    <Screen>
+      <PageHeader kicker="FantaFormula1" title="Dati" subtitle="Andamento, distribuzioni, record" size="lg" />
 
-      <main className="mx-auto w-full max-w-md flex-1 space-y-4 px-4 py-5">
+      <Main width="md" className="space-y-4">
         {teams.length === 0 ? (
-          <p className="mt-10 text-center font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-widest text-bone-dim">
-            Nessun dato ancora.
-          </p>
+          <Empty title="Nessun dato ancora" action={<Btn href="/inserisci">Inserisci una gara</Btn>}>
+            I grafici si popolano appena c&apos;è il primo Gran Premio a referto.
+          </Empty>
         ) : (
           <>
             {/* Legenda squadre */}
             <div className="flex flex-wrap gap-x-3 gap-y-1.5">
               {colored.map((t) => (
-                <span key={t.teamId} className="flex items-center gap-1.5 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-wider text-bone-dim">
+                <span key={t.teamId} className="label flex items-center gap-1.5 tracking-wider">
                   <span className="h-2 w-2 rounded-full" style={{ backgroundColor: t.color }} />
                   {short(t.name)}
                 </span>
               ))}
             </div>
 
-            {/* Andamento cumulativo */}
-            <section className="panel rounded-lg p-3">
-              <h2 className="mb-2 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.25em] text-bone-dim">
-                Andamento campionato
-              </h2>
+            <Section title="Andamento campionato">
               <CumulativeChart rounds={rounds} series={series} />
-            </section>
+            </Section>
 
-            {/* Distribuzione per categoria */}
-            <section className="panel rounded-lg p-3">
-              <h2 className="mb-3 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.25em] text-bone-dim">
-                Distribuzione punti per categoria
-              </h2>
+            <Section title="Distribuzione punti per categoria">
               <CategoryDonuts teams={donutTeams} groups={groups} />
-            </section>
+            </Section>
 
-            {/* Record */}
-            <section className="panel rounded-lg p-3">
-              <h2 className="mb-2 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.25em] text-bone-dim">
-                Record
-              </h2>
-              <ul className="space-y-1.5 font-[family-name:var(--font-mono)] text-xs">
-                <li className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-bone-dim"><FlagIcon className="h-3.5 w-3.5" />Più GP vinti</span>
-                  <span className="text-bone">{mostWins ? `${short(mostWins.name)} · ${mostWins.gpWins}` : "—"}</span>
-                </li>
-                <li className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-bone-dim"><BoltIcon className="h-3.5 w-3.5" />Miglior round</span>
-                  <span className="text-bone">
-                    {bestRound.points > 0 ? `${bestRound.name} · ${bestRound.round} · +${bestRound.points}` : "—"}
-                  </span>
-                </li>
-                <li className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-bone-dim"><ChartIcon className="h-3.5 w-3.5" />Distacco leader-ultimo</span>
-                  <span className="text-bone">{gap} pt</span>
-                </li>
+            {/* Il solo blocco con l'acid su questa schermata: è il dato che si va a cercare. */}
+            <Section title="Record">
+              <ul className="ignite text-xs">
+                <RecordRow
+                  icon={<FlagIcon className="h-3.5 w-3.5" />}
+                  label="Più GP vinti"
+                  value={mostWins ? `${short(mostWins.name)} · ${mostWins.gpWins}` : "—"}
+                />
+                <RecordRow
+                  icon={<BoltIcon className="h-3.5 w-3.5" />}
+                  label="Miglior round"
+                  value={bestRound.points > 0 ? `${bestRound.name} · ${bestRound.round} · +${bestRound.points}` : "—"}
+                  highlight
+                />
+                <RecordRow
+                  icon={<ChartIcon className="h-3.5 w-3.5" />}
+                  label="Distacco leader-ultimo"
+                  value={`${gap} pt`}
+                />
               </ul>
-            </section>
+            </Section>
 
-            {/* Testa a testa */}
-            <section className="panel rounded-lg p-3">
-              <h2 className="mb-3 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.25em] text-bone-dim">
-                Testa a testa
-              </h2>
+            <Section title="Testa a testa">
               <HeadToHead teams={colored} />
-            </section>
+            </Section>
 
-            {/* Media / max / min per round */}
-            <section className="panel rounded-lg p-3">
-              <h2 className="mb-2 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.25em] text-bone-dim">
-                Media · max · min (punti per round)
-              </h2>
-              <table className="w-full font-[family-name:var(--font-mono)] text-xs">
-                <thead>
-                  <tr className="text-[9px] uppercase tracking-widest text-bone-dim">
-                    <th className="py-1 text-left font-normal">Squadra</th>
-                    <th className="py-1 text-right font-normal">GP</th>
-                    <th className="py-1 text-right font-normal">Media</th>
-                    <th className="py-1 text-right font-normal">Max</th>
-                    <th className="py-1 text-right font-normal">Min</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {colored.map((t) => {
-                    const pr = t.perRound;
-                    const media = pr.length ? Math.round(t.total / pr.length) : 0;
-                    return (
-                      <tr key={t.teamId} className="border-t border-line/50">
-                        <td className="py-1.5 text-left text-bone">
-                          <span className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle" style={{ backgroundColor: t.color }} />
-                          {short(t.name)}
-                        </td>
-                        <td className="py-1.5 text-right text-acid">{t.gpWins}</td>
-                        <td className="py-1.5 text-right text-bone">{media}</td>
-                        <td className="py-1.5 text-right text-acid">{pr.length ? Math.max(...pr) : 0}</td>
-                        <td className="py-1.5 text-right text-bone-dim">{pr.length ? Math.min(...pr) : 0}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </section>
+            <Section title="Media · max · min (punti per round)">
+              <DataTable head={["Squadra", "GP", "Media", "Max", "Min"]}>
+                {colored.map((t) => {
+                  const pr = t.perRound;
+                  const media = pr.length ? Math.round(t.total / pr.length) : 0;
+                  return (
+                    <tr key={t.teamId} className="border-t border-line/50">
+                      <td className="py-2 text-left text-bone">
+                        <span
+                          className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle"
+                          style={{ backgroundColor: t.color }}
+                        />
+                        {short(t.name)}
+                      </td>
+                      <td className="py-2 text-right text-bone">{t.gpWins}</td>
+                      <td className="py-2 text-right text-bone">{media}</td>
+                      <td className="py-2 text-right font-bold text-bone">{pr.length ? Math.max(...pr) : 0}</td>
+                      <td className="py-2 text-right text-bone-dim">{pr.length ? Math.min(...pr) : 0}</td>
+                    </tr>
+                  );
+                })}
+              </DataTable>
+            </Section>
           </>
         )}
-      </main>
+      </Main>
 
       <BottomNav />
-    </div>
+    </Screen>
+  );
+}
+
+function RecordRow({
+  icon,
+  label,
+  value,
+  highlight,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  highlight?: boolean;
+}) {
+  return (
+    <li className="data-row flex items-center justify-between gap-3 py-2">
+      <span className="flex items-center gap-1.5 text-bone-dim">
+        {icon}
+        {label}
+      </span>
+      <span className={`num font-bold ${highlight ? "text-acid" : "text-bone"}`}>{value}</span>
+    </li>
   );
 }

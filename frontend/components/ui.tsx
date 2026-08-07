@@ -78,7 +78,7 @@ export function PageHeader({
           >
             {title}
           </h1>
-          {subtitle && <p className="label mt-1 normal-case tracking-widest">{subtitle}</p>}
+          {subtitle && <p className="note mt-1">{subtitle}</p>}
         </div>
         {action && <div className="shrink-0 pt-1">{action}</div>}
       </div>
@@ -118,6 +118,54 @@ export function Card({
   );
 }
 
+/**
+ * Sezione titolata dentro una superficie. È il blocco «pannello + titoletto tecnico»
+ * che compariva 12 volte a mano fra Dati, Squadra e Report.
+ */
+export function Section({
+  title,
+  action,
+  children,
+  className,
+  padded = true,
+}: {
+  title: ReactNode;
+  action?: ReactNode;
+  children: ReactNode;
+  className?: string;
+  padded?: boolean;
+}) {
+  return (
+    <Card className={cx(padded && "p-3", className)}>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <Label>{title}</Label>
+        {action && <div className="shrink-0">{action}</div>}
+      </div>
+      {children}
+    </Card>
+  );
+}
+
+/** Tabella di dati: numeri incolonnati, intestazioni in registro tecnico. */
+export function DataTable({ head, children }: { head: ReactNode[]; children: ReactNode }) {
+  return (
+    <div className="-mx-1 overflow-x-auto px-1">
+      <table className="num w-full text-xs">
+        <thead>
+          <tr className="label">
+            {head.map((h, i) => (
+              <th key={i} className={cx("py-1.5 font-normal", i === 0 ? "text-left" : "text-right")}>
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>{children}</tbody>
+      </table>
+    </div>
+  );
+}
+
 /** Coppia etichetta + valore. I numeri passano sempre da `.num`. */
 export function Stat({
   label,
@@ -152,6 +200,37 @@ export function Stat({
   );
 }
 
+/**
+ * Barra d'azione ancorata sopra la navigazione. Nei moduli lunghi il pulsante di
+ * salvataggio deve restare raggiungibile senza tornare in cima.
+ */
+export function StickyBar({ children, width = "md" }: { children: ReactNode; width?: "md" | "lg" }) {
+  return (
+    <div
+      className={cx("fixed inset-x-0 bottom-16 mx-auto px-4", width === "lg" ? "max-w-2xl" : "max-w-md")}
+      style={{ zIndex: "var(--z-sticky)" }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Pastiglia di stato. L'unica forma tonda ammessa dalla direzione. */
+export function Chip({
+  children,
+  tone = "quiet",
+}: {
+  children: ReactNode;
+  tone?: "acid" | "quiet" | "amber";
+}) {
+  const v = {
+    acid: "border-acid/50 bg-acid/10 text-acid",
+    quiet: "border-line text-bone-dim",
+    amber: "border-amber/50 bg-amber/10 text-amber",
+  }[tone];
+  return <span className={cx("label rounded-full border px-3 py-1", v)}>{children}</span>;
+}
+
 /** Riga di una lista di dati, con separatore sottile. */
 export function DataRow({ children, className }: { children: ReactNode; className?: string }) {
   return <li className={cx("data-row py-2.5", className)}>{children}</li>;
@@ -163,6 +242,8 @@ export function Btn({
   href,
   onClick,
   variant = "primary",
+  size = "md",
+  full = false,
   className,
   type,
   disabled,
@@ -171,18 +252,21 @@ export function Btn({
   href?: string;
   onClick?: () => void;
   variant?: "primary" | "outline" | "quiet";
+  size?: "md" | "lg";
+  full?: boolean;
   className?: string;
   type?: "button" | "submit";
   disabled?: boolean;
 }) {
   const base =
-    "inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-[family-name:var(--font-mono)] text-xs font-bold uppercase tracking-widest transition-colors";
+    "inline-flex items-center justify-center gap-2 font-[family-name:var(--font-mono)] font-bold uppercase tracking-widest transition-colors";
+  const s = size === "lg" ? "rounded-xl px-4 py-3 text-sm" : "rounded-lg px-4 py-2.5 text-xs";
   const v = {
     primary: "bg-acid text-carbon-950 hover:bg-acid-deep",
     outline: "border border-acid/40 bg-acid/5 text-acid hover:bg-acid/10",
     quiet: "border border-line text-bone-dim hover:border-acid hover:text-acid",
   }[variant];
-  const cls = cx(base, v, "disabled:opacity-40", className);
+  const cls = cx(base, s, v, full && "w-full", "disabled:opacity-50", className);
   if (href) {
     return (
       <Link href={href} className={cls} style={{ transitionDuration: "var(--dur-1)" }}>
@@ -194,6 +278,47 @@ export function Btn({
     <button type={type ?? "button"} onClick={onClick} disabled={disabled} className={cls} style={{ transitionDuration: "var(--dur-1)" }}>
       {children}
     </button>
+  );
+}
+
+/**
+ * Campo di modulo. Esportato anche come classe nuda perché alcuni moduli costruiscono
+ * `select` e `input` dentro cicli e non possono avvolgerli.
+ */
+export const fieldCls =
+  "w-full rounded-lg border border-line bg-panel px-3 py-2 text-bone outline-none transition-colors focus:border-acid";
+
+export function Field({
+  label,
+  tone = "dim",
+  hint,
+  children,
+}: {
+  label: ReactNode;
+  tone?: "dim" | "acid" | "amber";
+  hint?: ReactNode;
+  children: ReactNode;
+}) {
+  const color = { dim: "", acid: "text-acid-deep", amber: "text-amber" }[tone];
+  return (
+    <label className="block">
+      <Label className={color}>{label}</Label>
+      <div className="mt-1">{children}</div>
+      {hint && <span className="note mt-1 block">{hint}</span>}
+    </label>
+  );
+}
+
+/**
+ * Riscontro dopo un'azione: l'esito di un salvataggio. Compariva a mano in sette moduli,
+ * ogni volta con una sfumatura diversa di rosso o di acid.
+ */
+export function Note({ tone, children }: { tone: "ok" | "err"; children: ReactNode }) {
+  if (!children) return null;
+  return (
+    <p role="status" className={cx("num mt-2 text-center text-xs", tone === "ok" ? "text-acid" : "text-red")}>
+      {children}
+    </p>
   );
 }
 

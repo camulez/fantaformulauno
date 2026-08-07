@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { serverFetch } from "@/lib/api.server";
 import { BottomNav } from "@/components/BottomNav";
+import { Screen, Main, PageHeader, Label, Empty, Btn } from "@/components/ui";
 import type { Me, SeasonMatrix, StandingsResult } from "@/lib/types";
-
-const mono = "font-[family-name:var(--font-mono)]";
 
 export default async function ReportPage({
   searchParams,
@@ -27,12 +26,15 @@ export default async function ReportPage({
 
   if (!teamId) {
     return (
-      <div className="flex min-h-screen flex-col">
-        <main className="flex-1 px-5 py-10 text-center">
-          <p className={`${mono} text-[11px] uppercase tracking-widest text-bone-dim`}>Nessuna squadra disponibile.</p>
-        </main>
+      <Screen>
+        <PageHeader back="/" backLabel="Home" title="Report" />
+        <Main width="md">
+          <Empty title="Nessuna squadra disponibile" action={<Btn href="/">Torna alla griglia</Btn>}>
+            Il report si costruisce sulla rosa di una scuderia: prima serve almeno una squadra in stagione.
+          </Empty>
+        </Main>
         <BottomNav />
-      </div>
+      </Screen>
     );
   }
 
@@ -40,29 +42,22 @@ export default async function ReportPage({
   const nRounds = m.rounds.length;
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="border-b border-line/70 px-5 py-4">
-        <Link href="/" className={`${mono} text-[10px] uppercase tracking-widest text-bone-dim hover:text-acid`}>
-          ← Home
-        </Link>
-        <h1 className="mt-2 text-2xl font-semibold uppercase tracking-wide text-bone">Report</h1>
-        <p className={`${mono} mt-1 text-[10px] uppercase tracking-widest text-bone-dim`}>
-          Punti di ogni pezzo, gara per gara
-        </p>
-      </header>
+    <Screen>
+      <PageHeader back="/" backLabel="Home" title="Report" subtitle="Punti di ogni pezzo, gara per gara" />
 
-      <main className="flex-1 pb-6">
+      <Main width="full" className="px-0 pb-6 pt-0">
         {/* selettore scuderia */}
-        <div className="-mx-0 flex gap-2 overflow-x-auto px-4 py-3">
+        <div className="flex gap-2 overflow-x-auto px-4 py-3">
           {standings.teams.map((t) => {
             const active = t.teamId === teamId;
             return (
               <Link
                 key={t.teamId}
                 href={`/report?team=${t.teamId}`}
-                className={`${mono} shrink-0 rounded-full border px-3 py-1.5 text-[10px] uppercase tracking-widest transition-colors ${
-                  active ? "border-acid bg-acid/15 text-acid" : "border-line text-bone-dim hover:text-bone"
+                className={`label shrink-0 rounded-full border px-3 py-1.5 transition-colors ${
+                  active ? "border-acid bg-acid/15 text-acid" : "border-line hover:text-bone"
                 }`}
+                style={{ transitionDuration: "var(--dur-1)" }}
               >
                 {t.name.split(" ")[0]}
               </Link>
@@ -71,30 +66,34 @@ export default async function ReportPage({
         </div>
 
         {nRounds === 0 ? (
-          <p className={`${mono} px-5 py-10 text-center text-[11px] uppercase tracking-widest text-bone-dim`}>
-            Nessuna gara disputata.
-          </p>
+          <div className="px-4">
+            <Empty title="Nessuna gara disputata" action={<Btn href="/inserisci">Inserisci una gara</Btn>}>
+              La tabella incrocia i tuoi pezzi con i round: serve almeno un Gran Premio a referto.
+            </Empty>
+          </div>
         ) : (
           <>
-            <p className={`${mono} px-4 pb-2 text-[10px] uppercase tracking-widest text-acid`}>
+            <p className="label px-4 pb-2 text-acid">
               {m.team.name} · {m.grandTotal} pt
             </p>
 
+            {/* Matrice pezzi × gare. Prima colonna fissa: su telefono 24 gare non ci stanno. */}
             <div className="overflow-x-auto">
-              <table className="w-max border-separate border-spacing-0">
+              <table className="num w-max border-separate border-spacing-0">
                 <thead>
                   <tr>
                     <th className="sticky left-0 z-10 bg-carbon-950 px-3 py-2 text-left">
-                      <span className={`${mono} text-[9px] uppercase tracking-widest text-bone-dim`}>Pezzo</span>
+                      <Label>Pezzo</Label>
                     </th>
                     <th className="bg-carbon-950 px-2 py-2">
-                      <span className={`${mono} text-[9px] uppercase tracking-widest text-bone-dim`}>Tot</span>
+                      <Label>Tot</Label>
                     </th>
                     {m.rounds.map((r) => (
                       <th key={r.round_no} className="px-1 py-2">
                         <Link
                           href={`/report/${r.round_no}?team=${teamId}`}
-                          className={`${mono} block min-w-[38px] text-center text-[9px] uppercase tracking-wider text-bone-dim hover:text-acid`}
+                          className="label block min-w-[38px] text-center tracking-wider transition-colors hover:text-acid"
+                          style={{ transitionDuration: "var(--dur-1)" }}
                         >
                           <span className="block font-bold text-bone">{r.code ?? `R${r.round_no}`}</span>
                           <span className="block">R{r.round_no}</span>
@@ -109,15 +108,17 @@ export default async function ReportPage({
                     return (
                       <tr key={row.key}>
                         <th className="sticky left-0 z-10 border-t border-line/40 bg-carbon-950 px-3 py-2 text-left">
-                          <span className="block whitespace-nowrap text-xs font-semibold text-bone">{row.label}</span>
+                          <span className="block whitespace-nowrap font-[family-name:var(--font-display)] text-xs font-semibold text-bone">
+                            {row.label}
+                          </span>
                           {row.componentNames.length > 0 && (
-                            <span className={`${mono} block max-w-[140px] truncate text-[9px] text-bone-dim`}>
+                            <span className="block max-w-[140px] truncate text-[9px] text-bone-dim">
                               {row.componentNames.join(" → ")}
                             </span>
                           )}
                         </th>
                         <td className="border-t border-line/40 px-2 py-2 text-right">
-                          <span className={`${mono} text-sm font-bold text-acid`}>{row.total}</span>
+                          <span className="text-sm font-bold text-acid">{row.total}</span>
                         </td>
                         {row.points.map((p, i) => (
                           <td
@@ -125,9 +126,7 @@ export default async function ReportPage({
                             className="border-t border-line/40 px-1 py-2 text-center"
                             style={p > 0 ? { backgroundColor: `rgba(198,255,58,${0.06 + 0.22 * (p / max)})` } : undefined}
                           >
-                            <span className={`${mono} text-xs ${p > 0 ? "text-bone" : "text-bone-dim/40"}`}>
-                              {p > 0 ? p : "·"}
-                            </span>
+                            <span className={`text-xs ${p > 0 ? "text-bone" : "text-bone-dim/40"}`}>{p > 0 ? p : "·"}</span>
                           </td>
                         ))}
                       </tr>
@@ -135,14 +134,14 @@ export default async function ReportPage({
                   })}
                   <tr>
                     <th className="sticky left-0 z-10 border-t-2 border-line bg-carbon-950 px-3 py-2 text-left">
-                      <span className={`${mono} text-[10px] uppercase tracking-widest text-acid`}>Totale gara</span>
+                      <Label className="text-acid">Totale gara</Label>
                     </th>
                     <td className="border-t-2 border-line px-2 py-2 text-right">
-                      <span className={`${mono} text-sm font-bold text-acid`}>{m.grandTotal}</span>
+                      <span className="text-sm font-bold text-acid">{m.grandTotal}</span>
                     </td>
                     {m.columnTotals.map((p, i) => (
                       <td key={i} className="border-t-2 border-line px-1 py-2 text-center">
-                        <span className={`${mono} text-xs font-bold text-bone`}>{p}</span>
+                        <span className="text-xs font-bold text-bone">{p}</span>
                       </td>
                     ))}
                   </tr>
@@ -150,14 +149,14 @@ export default async function ReportPage({
               </table>
             </div>
 
-            <p className={`${mono} px-4 pt-3 text-[10px] leading-relaxed tracking-wider text-bone-dim`}>
+            <p className="note px-4 pt-3">
               Tocca una gara in alto per vedere il dettaglio di quel round.
             </p>
           </>
         )}
-      </main>
+      </Main>
 
       <BottomNav />
-    </div>
+    </Screen>
   );
 }

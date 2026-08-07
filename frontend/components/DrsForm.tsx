@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { clientFetch } from "@/lib/api";
+import { Btn, Note, StickyBar } from "@/components/ui";
 import type { RoundInfo } from "@/lib/types";
 
 const SLOT_LABEL: Record<string, string> = {
@@ -58,7 +59,7 @@ export function DrsForm({
 
   return (
     <div className="pb-24">
-      <p className="mb-3 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-bone-dim">
+      <p className="label mb-3">
         <span className="text-acid">{usedCount}</span> / {max} DRS · 1 per componente, 1 per round (solo punti Race)
       </p>
       <div className="space-y-1.5">
@@ -72,7 +73,7 @@ export function DrsForm({
           const val = sel[r.round_no] ?? "";
           return (
             <div key={r.id} className="flex items-center gap-2">
-              <span className="w-16 shrink-0 font-[family-name:var(--font-mono)] text-xs text-bone">
+              <span className="num w-16 shrink-0 text-xs text-bone">
                 R{r.round_no} <span className="text-bone-dim">{r.code}</span>
               </span>
               <select
@@ -94,17 +95,13 @@ export function DrsForm({
         })}
       </div>
 
-      <div className="fixed inset-x-0 bottom-16 z-10 mx-auto max-w-md px-4">
-        <button
-          onClick={save}
-          disabled={saving}
-          className="w-full rounded-xl bg-acid py-3 font-[family-name:var(--font-mono)] text-sm font-bold uppercase tracking-widest text-carbon-950 transition-opacity disabled:opacity-50"
-        >
+      <StickyBar>
+        <Btn onClick={save} disabled={saving} size="lg" full>
           {saving ? "Salvataggio…" : "Salva DRS"}
-        </button>
-        {msg && <p className="mt-2 text-center font-[family-name:var(--font-mono)] text-xs text-acid">{msg}</p>}
-        {error && <p className="mt-2 text-center font-[family-name:var(--font-mono)] text-xs text-red">{error}</p>}
-      </div>
+        </Btn>
+        <Note tone="ok">{msg}</Note>
+        <Note tone="err">{error}</Note>
+      </StickyBar>
     </div>
   );
 }

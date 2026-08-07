@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { clientFetch } from "@/lib/api";
+import { Btn, Note, fieldCls, StickyBar } from "@/components/ui";
 import type { ScoringRules } from "@/lib/types";
 
 export function RulesForm({ initial }: { initial: ScoringRules }) {
@@ -45,10 +46,8 @@ export function RulesForm({ initial }: { initial: ScoringRules }) {
     }
   }
 
-  const numCls =
-    "w-full rounded-lg border border-line bg-panel px-2 py-2 text-center text-sm text-bone outline-none focus:border-acid";
-  const labelCls =
-    "font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-acid-deep";
+  const numCls = `${fieldCls} num px-2 text-center text-sm`;
+  const labelCls = "label text-acid-deep";
 
   const Scale = ({ title, field: k }: { title: string; field: "raceScale" | "sprintScale" }) => (
     <section className="panel rounded-xl p-4">
@@ -162,17 +161,13 @@ export function RulesForm({ initial }: { initial: ScoringRules }) {
         da «Inserisci» e risalvali.
       </p>
 
-      <div className="fixed inset-x-0 bottom-16 z-10 mx-auto max-w-md px-4">
-        <button
-          onClick={save}
-          disabled={saving}
-          className="w-full rounded-xl bg-acid py-3 font-[family-name:var(--font-mono)] text-sm font-bold uppercase tracking-widest text-carbon-950 transition-opacity disabled:opacity-50"
-        >
+      <StickyBar>
+        <Btn onClick={save} disabled={saving} size="lg" full>
           {saving ? "Salvataggio…" : "Salva matrice"}
-        </button>
-        {msg && <p className="mt-2 text-center font-[family-name:var(--font-mono)] text-xs text-acid">{msg}</p>}
-        {error && <p className="mt-2 text-center font-[family-name:var(--font-mono)] text-xs text-red">{error}</p>}
-      </div>
+        </Btn>
+        <Note tone="ok">{msg}</Note>
+        <Note tone="err">{error}</Note>
+      </StickyBar>
     </div>
   );
 }

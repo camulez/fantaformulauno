@@ -128,6 +128,19 @@ body {
   color: var(--bone-dim);
 }
 
+/*
+ * Prosa tecnica: spiegazioni, sottotitoli, dettagli sotto un dato.
+ * Serve una classe a sé perché `.label` sta fuori dai layer di Tailwind e vince su
+ * `normal-case`: una didascalia lunga scritta in maiuscolo non si legge.
+ */
+.note {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: var(--text-2xs);
+  letter-spacing: 0.04em;
+  line-height: 1.65;
+  color: var(--bone-dim);
+}
+
 /* bagliore sui numeri "timing" */
 .digit-glow {
   text-shadow: 0 0 14px rgba(198, 255, 58, 0.4);

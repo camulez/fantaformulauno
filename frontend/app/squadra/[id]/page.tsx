@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { serverFetch } from "@/lib/api.server";
 import { BottomNav } from "@/components/BottomNav";
 import { CumulativeChart } from "@/components/charts/CumulativeChart";
+import { Screen, Main, PageHeader, Card, Label, DataRow, Btn } from "@/components/ui";
 import type { Me, TeamDetail } from "@/lib/types";
 
 const SLOTS: { key: keyof TeamDetail["breakdown"]; label: string }[] = [
@@ -29,95 +30,78 @@ export default async function SquadraPage({ params }: { params: Promise<{ id: st
   const rounds = team!.rounds.map((r) => `R${r.round_no}`);
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="border-b border-line/70 px-5 py-4">
-        <Link href="/classifica" className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-bone-dim hover:text-acid">
-          ← Mondiale
-        </Link>
-        <div className="mt-2 flex items-end justify-between">
-          <div className="min-w-0">
-            <p className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.3em] text-acid-deep">
-              Posizione {team!.position}
-            </p>
-            <h1 className="mt-0.5 truncate text-2xl font-semibold uppercase tracking-wide text-bone">
-              {team!.name}
-            </h1>
-          </div>
-          <p className="font-[family-name:var(--font-mono)] text-3xl font-bold text-acid digit-glow">
+    <Screen>
+      <PageHeader
+        back="/classifica"
+        backLabel="Mondiale"
+        kicker={`Posizione ${team!.position}`}
+        title={team!.name}
+        action={
+          <p className="num digit-glow font-bold leading-none text-acid" style={{ fontSize: "var(--text-3xl)" }}>
             {team!.total}
           </p>
-        </div>
-      </header>
+        }
+      />
 
-      <main className="mx-auto w-full max-w-md flex-1 space-y-4 px-4 py-5">
-        <section className="panel rounded-lg p-3">
-          <h2 className="mb-2 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.25em] text-bone-dim">
-            Andamento
-          </h2>
-          <CumulativeChart rounds={rounds} series={[{ name: team!.name, color: "#c6ff3a", values: team!.cumulative }]} />
-        </section>
+      <Main width="md" className="space-y-4">
+        <Card className="p-3">
+          <Label>Andamento</Label>
+          <div className="mt-2">
+            <CumulativeChart rounds={rounds} series={[{ name: team!.name, color: "#c6ff3a", values: team!.cumulative }]} />
+          </div>
+        </Card>
 
-        <section className="panel rounded-lg p-3">
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.25em] text-bone-dim">
-              Roster · punti per componente
-            </h2>
-            <div className="flex gap-3">
-              <Link
-                href={`/squadra/${id}/drs`}
-                className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-acid transition-colors hover:text-acid-deep"
-              >
-                DRS
-              </Link>
-              <Link
-                href={`/squadra/${id}/mercato`}
-                className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-acid transition-colors hover:text-acid-deep"
-              >
-                Mercato
-              </Link>
-              <Link
-                href={`/squadra/${id}/modifica`}
-                className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-acid transition-colors hover:text-acid-deep"
-              >
-                Modifica →
-              </Link>
+        <Card className="p-3">
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <Label>Roster · punti per componente</Label>
+            <div className="flex shrink-0 gap-3">
+              {[
+                { href: `/squadra/${id}/drs`, label: "DRS" },
+                { href: `/squadra/${id}/mercato`, label: "Mercato" },
+                { href: `/squadra/${id}/modifica`, label: "Modifica →" },
+              ].map((l) => (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  className="label text-acid transition-colors hover:text-acid-deep"
+                  style={{ transitionDuration: "var(--dur-1)" }}
+                >
+                  {l.label}
+                </Link>
+              ))}
             </div>
           </div>
-          <ul className="divide-y divide-line/50">
+          <ul className="ignite">
             {SLOTS.map((s) => (
-              <li key={s.key} className="flex items-center gap-3 py-2">
-                <span className="w-16 shrink-0 font-[family-name:var(--font-mono)] text-[9px] uppercase tracking-widest text-acid-deep">
-                  {s.label}
-                </span>
+              <DataRow key={s.key} className="flex items-center gap-3">
+                <Label className="w-16 shrink-0 text-acid-deep">{s.label}</Label>
                 <span className="min-w-0 flex-1 truncate text-sm text-bone">{rosterName.get(s.key) ?? "—"}</span>
-                <span className="font-[family-name:var(--font-mono)] text-sm font-bold text-bone">
-                  {team!.breakdown[s.key]}
-                </span>
-              </li>
+                <span className="num text-sm font-bold text-bone">{team!.breakdown[s.key]}</span>
+              </DataRow>
             ))}
-            {/* Derivati */}
+            {/* Derivati: non si comprano, li calcola il motore */}
             <DerivedRow label="Pole" value={team!.breakdown.pole} />
             <DerivedRow label="Team Manager" value={team!.breakdown.teamManager} />
             {team!.breakdown.drsBonus > 0 && <DerivedRow label="DRS" value={team!.breakdown.drsBonus} />}
           </ul>
-        </section>
-      </main>
+        </Card>
+
+        <Btn href={`/report/${team!.rounds.at(-1)?.round_no ?? 1}`} variant="quiet" className="w-full">
+          Report per gara
+        </Btn>
+      </Main>
 
       <BottomNav />
-    </div>
+    </Screen>
   );
 }
 
 function DerivedRow({ label, value }: { label: string; value: number }) {
   return (
-    <li className="flex items-center gap-3 py-2">
-      <span className="w-16 shrink-0 font-[family-name:var(--font-mono)] text-[9px] uppercase tracking-widest text-bone-dim">
-        {label}
-      </span>
-      <span className="min-w-0 flex-1 truncate font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-wider text-bone-dim">
-        derivato
-      </span>
-      <span className="font-[family-name:var(--font-mono)] text-sm font-bold text-bone">{value}</span>
-    </li>
+    <DataRow className="flex items-center gap-3">
+      <Label className="w-16 shrink-0">{label}</Label>
+      <span className="note min-w-0 flex-1 truncate">derivato</span>
+      <span className="num text-sm font-bold text-bone">{value}</span>
+    </DataRow>
   );
 }

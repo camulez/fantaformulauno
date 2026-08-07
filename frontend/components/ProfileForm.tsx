@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { clientFetch } from "@/lib/api";
+import { Btn, Field, Note, fieldCls } from "@/components/ui";
 
 export function ProfileForm({ currentName }: { currentName: string }) {
   const router = useRouter();
@@ -44,55 +45,44 @@ export function ProfileForm({ currentName }: { currentName: string }) {
     }
   }
 
+  const pinCls = `${fieldCls} num text-center text-lg tracking-[0.4em]`;
+
   return (
     <div className="space-y-4">
-      <label className="block">
-        <span className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-bone-dim">
-          Il tuo nome
-        </span>
+      <Field label="Il tuo nome">
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={30}
-          className="mt-1 w-full rounded-lg border border-line bg-panel px-3 py-2 text-lg text-bone outline-none focus:border-acid"
+          className={`${fieldCls} text-lg`}
         />
-      </label>
+      </Field>
 
-      <label className="block">
-        <span className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-bone-dim">
-          Nuovo PIN (opzionale, 4 cifre)
-        </span>
+      <Field label="Nuovo PIN (opzionale, 4 cifre)">
         <input
           value={newPin}
           onChange={(e) => setNewPin(digits(e.target.value))}
           inputMode="numeric"
           placeholder="— — — —"
-          className="mt-1 w-full rounded-lg border border-line bg-panel px-3 py-2 text-center font-[family-name:var(--font-mono)] text-lg tracking-[0.4em] text-bone outline-none focus:border-acid"
+          className={pinCls}
         />
-      </label>
+      </Field>
 
-      <label className="block">
-        <span className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-amber">
-          PIN attuale (per confermare)
-        </span>
+      <Field label="PIN attuale (per confermare)" tone="amber">
         <input
           value={currentPin}
           onChange={(e) => setCurrentPin(digits(e.target.value))}
           inputMode="numeric"
           placeholder="— — — —"
-          className="mt-1 w-full rounded-lg border border-line bg-panel px-3 py-2 text-center font-[family-name:var(--font-mono)] text-lg tracking-[0.4em] text-bone outline-none focus:border-acid"
+          className={pinCls}
         />
-      </label>
+      </Field>
 
-      <button
-        onClick={save}
-        disabled={saving}
-        className="w-full rounded-xl bg-acid py-3 font-[family-name:var(--font-mono)] text-sm font-bold uppercase tracking-widest text-carbon-950 transition-opacity disabled:opacity-50"
-      >
+      <Btn onClick={save} disabled={saving} size="lg" full>
         {saving ? "Salvataggio…" : "Salva"}
-      </button>
-      {msg && <p className="text-center font-[family-name:var(--font-mono)] text-xs text-acid">{msg}</p>}
-      {error && <p className="text-center font-[family-name:var(--font-mono)] text-xs text-red">{error}</p>}
+      </Btn>
+      <Note tone="ok">{msg}</Note>
+      <Note tone="err">{error}</Note>
     </div>
   );
 }

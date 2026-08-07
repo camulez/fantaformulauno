@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { clientFetch } from "@/lib/api";
+import { Btn, Card, Field, Label, Note, fieldCls } from "@/components/ui";
 import type { AlboSeasonRow, PersonPublic } from "@/lib/types";
 import { TrophyIcon } from "@/components/icons";
 
@@ -79,108 +80,97 @@ export function AlboEditor({
     }
   }
 
-  const selectCls =
-    "w-full rounded-lg border border-line bg-carbon-950 px-3 py-2 text-sm text-bone outline-none focus:border-acid";
+  const selectCls = `${fieldCls} bg-carbon-950 text-sm`;
 
   return (
     <div className="space-y-5">
       {/* Form aggiungi/modifica */}
-      <div className="panel accent-bar rounded-xl p-4">
-        <p className="mb-3 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.25em] text-acid">
+      <Card accent className="p-4">
+        <Label className="text-acid">
           {editingYear ? `Modifica stagione ${editingYear}` : "Aggiungi stagione"}
-        </p>
+        </Label>
 
-        <label className="mb-1 block font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-bone-dim">
-          Anno
-        </label>
-        <input
-          type="number"
-          inputMode="numeric"
-          value={year}
-          onChange={(e) => setYear(e.target.value)}
-          disabled={editingYear !== null}
-          placeholder="es. 2005"
-          className={`${selectCls} mb-3 disabled:opacity-60`}
-        />
+        <div className="mt-3 space-y-3">
+          <Field label="Anno">
+            <input
+              type="number"
+              inputMode="numeric"
+              value={year}
+              onChange={(e) => setYear(e.target.value)}
+              disabled={editingYear !== null}
+              placeholder="es. 2005"
+              className={`${selectCls} num disabled:opacity-60`}
+            />
+          </Field>
 
-        <label className="mb-1 block font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-bone-dim">
-          Campione
-        </label>
-        <select value={championId} onChange={(e) => setChampionId(e.target.value)} className={`${selectCls} mb-3`}>
-          <option value="">— nessuno —</option>
-          {people.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+          <Field label="Campione">
+            <select value={championId} onChange={(e) => setChampionId(e.target.value)} className={selectCls}>
+              <option value="">— nessuno —</option>
+              {people.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </Field>
 
-        <label className="mb-1 block font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-bone-dim">
-          Vincitore Coppa Team Manager
-        </label>
-        <select value={tmCupId} onChange={(e) => setTmCupId(e.target.value)} className={`${selectCls} mb-4`}>
-          <option value="">— nessuno —</option>
-          {people.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+          <Field label="Vincitore Coppa Team Manager">
+            <select value={tmCupId} onChange={(e) => setTmCupId(e.target.value)} className={selectCls}>
+              <option value="">— nessuno —</option>
+              {people.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
 
-        {error && <p className="mb-2 font-[family-name:var(--font-mono)] text-xs text-red">{error}</p>}
+        <Note tone="err">{error}</Note>
 
-        <div className="flex gap-2">
-          <button
-            onClick={save}
-            disabled={saving}
-            className="flex-1 rounded-lg bg-acid px-4 py-2 font-[family-name:var(--font-mono)] text-xs font-bold uppercase tracking-widest text-carbon-950 transition-opacity disabled:opacity-40"
-          >
+        <div className="mt-4 flex gap-2">
+          <Btn onClick={save} disabled={saving} className="flex-1">
             {saving ? "…" : editingYear ? "Aggiorna" : "Salva"}
-          </button>
+          </Btn>
           {editingYear !== null && (
-            <button
-              onClick={reset}
-              className="rounded-lg border border-line px-4 py-2 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-bone-dim transition-colors hover:text-acid"
-            >
+            <Btn onClick={reset} variant="quiet">
               Annulla
-            </button>
+            </Btn>
           )}
         </div>
-      </div>
+      </Card>
 
       {/* Elenco stagioni */}
       <div>
-        <p className="mb-2 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.25em] text-bone-dim">
-          Stagioni in archivio
-        </p>
+        <Label>Stagioni in archivio</Label>
         {seasons.length === 0 ? (
-          <p className="text-center font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-widest text-bone-dim">
-            Nessuna stagione. Aggiungi la prima qui sopra.
-          </p>
+          <p className="label mt-2 text-center">Nessuna stagione. Aggiungi la prima qui sopra.</p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="ignite mt-2 space-y-2">
             {seasons.map((s) => (
               <li key={s.id} className="panel flex items-center gap-3 rounded-lg px-4 py-3">
-                <span className="w-12 font-[family-name:var(--font-mono)] text-lg font-bold text-acid">{s.year}</span>
+                <span className="num w-12 shrink-0 text-lg font-bold text-acid">{s.year}</span>
                 <div className="min-w-0 flex-1 space-y-0.5">
                   <p className="truncate text-sm text-bone">
                     <TrophyIcon className="inline h-3.5 w-3.5 text-acid-deep" /> {s.championName ?? "—"}
                   </p>
-                  <p className="truncate font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-wider text-bone-dim">
+                  <p className="note truncate">
                     Coppa TM: {s.tmCupName ?? "—"}
                     {s.mode === "live" && <span className="ml-2 text-acid">· live</span>}
                   </p>
                 </div>
                 <button
                   onClick={() => loadForEdit(s)}
-                  className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-bone-dim transition-colors hover:text-acid"
+                  className="label transition-colors hover:text-acid"
+                  style={{ transitionDuration: "var(--dur-1)" }}
                 >
                   Modifica
                 </button>
                 {s.mode === "summary" && (
                   <button
                     onClick={() => remove(s)}
-                    className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-bone-dim transition-colors hover:text-red"
+                    className="label transition-colors hover:text-red"
+                    style={{ transitionDuration: "var(--dur-1)" }}
                   >
                     Elimina
                   </button>

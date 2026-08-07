@@ -101,7 +101,8 @@ già stabilito.
 | copertura stati loading / error | 0 / 20 | **20 / 20** |
 | `not-found` / `global-error` | assenti | presenti |
 | emoji usate come icone | 14 | **0** |
-| stringhe di classi duplicate ≥ 3× | 26 | 24 |
+| stringhe di classi duplicate ≥ 3× | 26 | **6** |
+| contenitore più ripetuto | `max-w-md` × 23 | `max-w-md` × 7 |
 
 ## Verifica finale (misurata a schermo, non dichiarata)
 
@@ -114,7 +115,17 @@ già stabilito.
 | Peso | dipendenze invariate (`next, react, react-dom, three`), nessun JS aggiunto; **CSS globale 8,1 KB gzip** in totale | ben dentro +15 KB |
 | Motore di punteggio | `gate.check.ts` 778 / 634 / 558 / 285 · `report.check.ts` 102 test · simulatore 33 test + 24/24 circuiti | **verdi** |
 
-**Nota onesta sulle stringhe duplicate**: la duplicazione è scesa poco perché solo tre schermate
-(home, classifica, report del round) sono state riscritte sulle primitive di `components/ui.tsx`.
-Le altre ereditano token, materia e tipografia — cambiano aspetto — ma conservano il loro
-markup. Convertirle è lavoro meccanico rimasto in coda, non un difetto di direzione.
+Le **20 schermate** e i **12 componenti client** passano tutti dalle primitive di
+`components/ui.tsx`. Le 6 stringhe rimaste sono combinazioni generiche di layout
+(`flex items-center justify-between gap-3`): non sono duplicazione di design, e astrarle
+produrrebbe indirezione senza guadagno.
+
+## Le primitive
+
+`Screen` · `Main` · `PageHeader` · `Card` · `Section` · `DataTable` · `DataRow` · `Stat` ·
+`Btn` · `Field` + `fieldCls` · `Note` · `Chip` · `StickyBar` · `Empty` · `Label`.
+Nessuna dipendenza: sono componenti a proprietà, non un design system esterno.
+
+**Trappola già pagata una volta**: `.label` e `.note` stanno **fuori dai layer di Tailwind**,
+quindi vincono sulle utility. `class="label normal-case"` **non** toglie il maiuscolo: per la
+prosa si usa `.note`, per le etichette `.label`. Una didascalia lunga in maiuscolo non si legge.

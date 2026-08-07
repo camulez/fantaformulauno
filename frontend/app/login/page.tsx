@@ -3,10 +3,15 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { clientFetch } from "@/lib/api";
+import { Label } from "@/components/ui";
 import type { PersonPublic } from "@/lib/types";
 
 type Mode = "select" | "pin";
 
+/**
+ * Registro vetrina: prima impressione, zero dati. Il budget va sulla composizione —
+ * titolo grande, i box che si accendono in cascata.
+ */
 export default function LoginPage() {
   const router = useRouter();
   const [people, setPeople] = useState<PersonPublic[]>([]);
@@ -59,19 +64,28 @@ export default function LoginPage() {
 
   if (mode === "select") {
     return (
-      <main className="mx-auto flex min-h-screen max-w-md flex-col px-5 py-12">
-        <p className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.35em] text-acid-deep">
-          FantaFormula1 · 2026
-        </p>
-        <h1 className="mt-1 text-5xl font-bold uppercase leading-none tracking-tight text-bone">
-          Griglia di<br />
-          <span className="text-acid digit-glow">partenza</span>
-        </h1>
-        <p className="mt-3 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-bone-dim">
-          Seleziona il tuo box
-        </p>
+      <main className="relative mx-auto flex min-h-screen max-w-md flex-col overflow-hidden px-5 py-12">
+        {/* Filigrana dell'anno: profondità senza aggiungere un elemento da leggere. */}
+        <span
+          aria-hidden
+          className="num pointer-events-none absolute -right-6 top-4 select-none font-bold leading-none text-bone/[0.035]"
+          style={{ fontSize: "var(--text-5xl)" }}
+        >
+          2026
+        </span>
 
-        <div className="mt-8 grid grid-cols-2 gap-3">
+        <Label className="relative text-acid-deep">FantaFormula1 · 2026</Label>
+        <h1
+          className="relative mt-1 font-bold uppercase leading-[0.9] tracking-tight text-bone"
+          style={{ fontSize: "var(--text-5xl)" }}
+        >
+          Griglia di
+          <br />
+          <span className="digit-glow text-acid">partenza</span>
+        </h1>
+        <Label className="relative mt-3 text-xs">Seleziona il tuo box</Label>
+
+        <div className="ignite relative mt-8 grid grid-cols-2 gap-3">
           {people.map((p, i) => (
             <button
               key={p.id}
@@ -80,20 +94,20 @@ export default function LoginPage() {
                 setMode("pin");
               }}
               className="panel accent-bar group flex items-center gap-3 rounded-xl px-4 py-5 text-left transition-colors hover:border-acid"
+              style={{ transitionDuration: "var(--dur-1)" }}
             >
-              <span className="font-[family-name:var(--font-mono)] text-xs text-bone-dim">
-                P{i + 1}
-              </span>
-              <span className="text-xl font-semibold uppercase tracking-wide text-bone group-hover:text-acid">
+              <span className="num text-xs text-bone-dim">P{i + 1}</span>
+              <span
+                className="font-semibold uppercase tracking-wide text-bone group-hover:text-acid"
+                style={{ fontSize: "var(--text-xl)" }}
+              >
                 {p.name}
               </span>
             </button>
           ))}
         </div>
 
-        {error && (
-          <p className="mt-6 font-[family-name:var(--font-mono)] text-sm text-red">{error}</p>
-        )}
+        {error && <p className="num relative mt-6 text-sm text-red">{error}</p>}
       </main>
     );
   }
@@ -102,26 +116,21 @@ export default function LoginPage() {
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-center px-5 py-12">
       <button
         onClick={reset}
-        className="self-start font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-bone-dim hover:text-acid"
+        className="label self-start transition-colors hover:text-acid"
+        style={{ transitionDuration: "var(--dur-1)" }}
       >
         ← Cambia box
       </button>
 
-      <h1 className="mt-8 text-4xl font-bold uppercase tracking-tight text-bone">
+      <h1 className="mt-8 font-bold uppercase tracking-tight text-bone" style={{ fontSize: "var(--text-4xl)" }}>
         Ciao, <span className="text-acid">{selected?.name}</span>
       </h1>
-      <p className="mt-2 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-bone-dim">
-        Inserisci il PIN
-      </p>
+      <Label className="mt-2 text-xs">Inserisci il PIN</Label>
 
       <PinDots length={pin.length} />
 
-      {error && (
-        <p className="mt-4 font-[family-name:var(--font-mono)] text-sm text-red">{error}</p>
-      )}
-      {loading && (
-        <p className="mt-4 font-[family-name:var(--font-mono)] text-sm text-bone-dim">Verifica…</p>
-      )}
+      {error && <p className="num mt-4 text-sm text-red">{error}</p>}
+      {loading && <p className="num mt-4 text-sm text-bone-dim">Verifica…</p>}
 
       <PinPad disabled={loading} onDigit={pressDigit} onBackspace={backspace} />
     </main>
@@ -137,6 +146,7 @@ function PinDots({ length }: { length: number }) {
           className={`h-4 w-4 rounded-full border-2 transition-colors ${
             i < length ? "border-acid bg-acid" : "border-line bg-transparent"
           }`}
+          style={{ transitionDuration: "var(--dur-1)" }}
         />
       ))}
     </div>
@@ -162,7 +172,8 @@ function PinPad({
             key={i}
             disabled={disabled}
             onClick={() => (d === "⌫" ? onBackspace() : onDigit(d))}
-            className="flex h-16 w-16 items-center justify-center rounded-full border border-line font-[family-name:var(--font-mono)] text-2xl text-bone transition-colors hover:border-acid hover:text-acid active:scale-95 disabled:opacity-40"
+            className="num flex h-16 w-16 items-center justify-center rounded-full border border-line text-2xl text-bone transition-colors hover:border-acid hover:text-acid active:scale-95 disabled:opacity-40"
+            style={{ transitionDuration: "var(--dur-1)" }}
           >
             {d}
           </button>

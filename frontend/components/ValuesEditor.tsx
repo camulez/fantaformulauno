@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { clientFetch } from "@/lib/api";
+import { Btn, Chip, DataRow, Label, Note, Section, fieldCls, StickyBar } from "@/components/ui";
 import type { AuctionKind, ComponentValue, ValuesPayload } from "@/lib/types";
 import { tileStyle } from "@/lib/tileIntensity";
 
@@ -38,7 +39,7 @@ export function ValuesEditor() {
   }, [refresh]);
 
   if (!data) {
-    return <p className="mt-10 text-center font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-bone-dim">Caricamento…</p>;
+    return <p className="note mt-10 text-center">Caricamento…</p>;
   }
 
   const { approved, auctionActive, components } = data;
@@ -98,36 +99,25 @@ export function ValuesEditor() {
     }
   }
 
-  const btn = "rounded-lg px-4 py-2 font-[family-name:var(--font-mono)] text-xs font-bold uppercase tracking-widest transition-opacity disabled:opacity-40";
-
   return (
     <div className="space-y-4 pb-28">
       {/* Stato */}
       <div className="flex items-center justify-between">
-        <span
-          className={`rounded-full border px-3 py-1 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest ${
-            approved ? "border-acid/50 bg-acid/10 text-acid" : "border-line text-bone-dim"
-          }`}
-        >
-          {approved ? "● Approvato" : "○ Bozza modificabile"}
-        </span>
-        {auctionActive && (
-          <span className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-acid-deep">Asta in corso</span>
-        )}
+        <Chip tone={approved ? "acid" : "quiet"}>{approved ? "● Approvato" : "○ Bozza modificabile"}</Chip>
+        {auctionActive && <Label className="text-acid-deep">Asta in corso</Label>}
       </div>
 
       {KIND_ORDER.map((kind) => {
         const rows = components.filter((c) => c.kind === kind);
         if (rows.length === 0) return null;
         return (
-          <section key={kind} className="panel rounded-xl p-3">
-            <p className="mb-2 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.25em] text-acid-deep">{KIND_LABEL[kind]}</p>
-            <ul className="divide-y divide-line/40">
+          <Section key={kind} title={KIND_LABEL[kind]} className="rounded-xl">
+            <ul>
               {rows.map((c) => {
                 const taken = !!c.assignedTo;
                 return (
-                  <li key={c.id} className={`flex items-center gap-3 py-1.5 ${taken ? "opacity-40" : ""}`}>
-                    {/* chip intensità */}
+                  <DataRow key={c.id} className={`flex items-center gap-3 py-1.5 ${taken ? "opacity-40" : ""}`}>
+                    {/* chip intensità: acceso quanto vale il pezzo */}
                     <span
                       className="h-6 w-6 shrink-0 rounded-md border"
                       style={tileStyle(ACID, c.basePrice, maxBase)}
@@ -135,48 +125,48 @@ export function ValuesEditor() {
                     />
                     <span className={`min-w-0 flex-1 truncate text-sm text-bone ${taken ? "line-through" : ""}`}>
                       {c.name}
-                      {taken && <span className="ml-2 font-[family-name:var(--font-mono)] text-[10px] text-acid-deep">→ {c.owner}</span>}
+                      {taken && <span className="num ml-2 text-[10px] text-acid-deep">→ {c.owner}</span>}
                     </span>
                     {approved || taken ? (
-                      <span className="w-16 text-right font-[family-name:var(--font-mono)] text-sm text-acid">{c.basePrice}</span>
+                      <span className="num w-16 text-right text-sm text-acid">{c.basePrice}</span>
                     ) : (
                       <input
                         type="number"
                         inputMode="numeric"
                         value={valueOf(c)}
                         onChange={(e) => setEdited((p) => ({ ...p, [c.id]: e.target.value }))}
-                        className="w-16 rounded-lg border border-line bg-carbon-950 px-2 py-1 text-right text-sm text-bone outline-none focus:border-acid"
+                        className={`${fieldCls} num w-16 bg-carbon-950 px-2 py-1 text-right text-sm`}
                       />
                     )}
-                  </li>
+                  </DataRow>
                 );
               })}
             </ul>
-          </section>
+          </Section>
         );
       })}
 
       {/* Barra azioni */}
-      <div className="fixed inset-x-0 bottom-16 z-10 mx-auto max-w-2xl px-4">
+      <StickyBar width="lg">
         <div className="flex items-center gap-2 rounded-xl border border-line bg-panel/95 p-2 backdrop-blur">
           {approved ? (
-            <button onClick={reopen} disabled={busy} className={`${btn} flex-1 border border-line text-bone hover:border-acid`}>
+            <Btn onClick={reopen} disabled={busy} variant="quiet" className="flex-1">
               {busy ? "…" : "Riapri listino"}
-            </button>
+            </Btn>
           ) : (
             <>
-              <button onClick={save} disabled={busy} className={`${btn} flex-1 bg-acid/90 text-carbon-950`}>
+              <Btn onClick={save} disabled={busy} variant="outline" className="flex-1">
                 {busy ? "…" : "Salva valori"}
-              </button>
-              <button onClick={approve} disabled={busy} className={`${btn} flex-1 bg-acid text-carbon-950`}>
+              </Btn>
+              <Btn onClick={approve} disabled={busy} className="flex-1">
                 Approva
-              </button>
+              </Btn>
             </>
           )}
         </div>
-        {msg && <p className="mt-1 text-center font-[family-name:var(--font-mono)] text-xs text-acid">{msg}</p>}
-        {error && <p className="mt-1 text-center font-[family-name:var(--font-mono)] text-xs text-red">{error}</p>}
-      </div>
+        <Note tone="ok">{msg}</Note>
+        <Note tone="err">{error}</Note>
+      </StickyBar>
     </div>
   );
 }

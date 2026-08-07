@@ -12,7 +12,7 @@ import type { Me, ReportRow, RoundReport } from "@/lib/types";
 
 /** Spiegazione di come nascono i punti di un pezzo. */
 function Spiegazione({ row }: { row: ReportRow }) {
-  const cls = "label mt-1 block normal-case leading-relaxed tracking-wider";
+  const cls = "note mt-1 block";
 
   switch (row.slot) {
     case "telaio":
@@ -247,7 +247,7 @@ export default async function ReportRoundPage({
                             {b.pt > 0 ? `+${b.pt}` : 0}
                           </span>
                         </div>
-                        <span className="label mt-1 block normal-case leading-relaxed tracking-wider">{b.det}</span>
+                        <span className="note mt-1 block">{b.det}</span>
                       </DataRow>
                     ))}
                   </ul>

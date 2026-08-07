@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { clientFetch } from "@/lib/api";
+import { Btn, Card, Empty, Label, Note, fieldCls } from "@/components/ui";
 import type { AuctionSlot, AuctionState } from "@/lib/types";
 import { AuctionBoard } from "./AuctionBoard";
 import { CheckIcon, FlagIcon, XIcon } from "@/components/icons";
@@ -109,25 +110,26 @@ export function AuctionRoom() {
     }
   }
 
-  const btn = "rounded-lg px-3 py-2 font-[family-name:var(--font-mono)] text-xs font-bold uppercase tracking-widest transition-opacity disabled:opacity-40";
-  const field = "w-full rounded-lg border border-line bg-panel px-2 py-2 text-sm text-bone outline-none focus:border-acid";
+  const field = `${fieldCls} px-2 text-sm`;
 
   if (!loaded) {
-    return <p className="mt-10 text-center font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-bone-dim">Caricamento…</p>;
+    return <p className="label mt-10 text-center text-xs">Caricamento…</p>;
   }
 
   // ── Nessuna sessione: avvia ──
   if (!state) {
     return (
-      <div className="mt-8 space-y-4 text-center">
-        <p className="font-[family-name:var(--font-mono)] text-[11px] uppercase leading-relaxed tracking-widest text-bone-dim">
-          L&apos;asta non è ancora avviata.<br />Prepara il tabellone coi 6 garage.
-        </p>
-        <button onClick={() => act("/auction/start")} disabled={busy} className={`${btn} bg-acid text-carbon-950`}>
-          {busy ? "…" : "Avvia asta"}
-        </button>
-        {error && <p className="font-[family-name:var(--font-mono)] text-xs text-red">{error}</p>}
-      </div>
+      <Empty
+        title="L'asta non è ancora avviata"
+        action={
+          <Btn onClick={() => act("/auction/start")} disabled={busy}>
+            {busy ? "…" : "Avvia asta"}
+          </Btn>
+        }
+      >
+        Prepara il tabellone coi 6 garage: le offerte si scrivono su carta, qui si compone il puzzle.
+        {error && <Note tone="err">{error}</Note>}
+      </Empty>
     );
   }
 
@@ -136,10 +138,14 @@ export function AuctionRoom() {
       <AuctionBoard state={state} />
 
       {/* Console banditore */}
-      <div className="panel accent-bar rounded-xl p-4">
+      <Card accent className="p-4">
         <div className="mb-3 flex items-center justify-between">
-          <p className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.25em] text-acid">Console banditore</p>
-          <button onClick={() => { if (confirm("Azzerare l'asta?")) act("/auction/reset").then(() => setState(null)); }} className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-bone-dim hover:text-red">
+          <Label className="text-acid">Console banditore</Label>
+          <button
+            onClick={() => { if (confirm("Azzerare l'asta?")) act("/auction/reset").then(() => setState(null)); }}
+            className="label transition-colors hover:text-red"
+            style={{ transitionDuration: "var(--dur-1)" }}
+          >
             Ricomincia
           </button>
         </div>
@@ -150,14 +156,9 @@ export function AuctionRoom() {
             {state.phaseOrder.map((slot) => {
               const missing = state.participants.filter((p) => !p.garage[slot]).length;
               return (
-                <button
-                  key={slot}
-                  onClick={() => act("/auction/category", { slot })}
-                  disabled={busy || missing === 0}
-                  className={`${btn} border border-line text-bone hover:border-acid disabled:border-line/40`}
-                >
+                <Btn key={slot} onClick={() => act("/auction/category", { slot })} disabled={busy || missing === 0} variant="quiet">
                   {missing === 0 ? (<><CheckIcon className="mr-1 inline h-3 w-3 align-[-1px]" />{SLOT_LABEL[slot]}</>) : `Avvia ${SLOT_LABEL[slot]}`}
-                </button>
+                </Btn>
               );
             })}
           </div>
@@ -167,16 +168,16 @@ export function AuctionRoom() {
         {round && (
           <div className="space-y-3">
             <div className="flex items-center justify-between rounded-lg border border-line px-3 py-2">
-              <span className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-bone">
+              <span className="num text-xs uppercase tracking-widest text-bone">
                 {tie ? "Ribattuta" : SLOT_LABEL[round.slot]}
                 {round.roundNumber > 1 && !tie ? ` · sub-round ${round.roundNumber}` : ""}
               </span>
-              <span className="font-[family-name:var(--font-mono)] text-[10px] text-bone-dim">
+              <span className="num text-[10px] text-bone-dim">
                 {round.slips.length}/{activeIds.length} biglietti
               </span>
             </div>
             {tie && round.tieComponentId && (
-              <p className="font-[family-name:var(--font-mono)] text-[11px] text-acid">
+              <p className="num text-[11px] text-acid">
                 Pareggio su {byId.get(round.tieComponentId)?.name} tra {round.tieTeamIds.map(teamName).join(", ")}
               </p>
             )}
@@ -203,7 +204,7 @@ export function AuctionRoom() {
               )}
               <input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="M$" className={field} />
             </div>
-            <button onClick={register} disabled={busy} className={`${btn} w-full bg-acid/90 text-carbon-950`}>Registra biglietto</button>
+            <Btn onClick={register} disabled={busy} full>Registra biglietto</Btn>
 
             {/* Biglietti registrati */}
             {round.slips.length > 0 && (
@@ -211,7 +212,7 @@ export function AuctionRoom() {
                 {round.slips.map((s) => (
                   <li key={s.teamId} className="flex items-center justify-between rounded-lg bg-carbon-950/60 px-3 py-1.5 text-sm">
                     <span className="text-bone"><span className="text-acid">{teamName(s.teamId)}</span> → {byId.get(s.componentId)?.name}</span>
-                    <span className="flex items-center gap-2 font-[family-name:var(--font-mono)] text-xs text-bone-dim">
+                    <span className="num flex items-center gap-2 text-xs text-bone-dim">
                       {s.amount}
                       <button onClick={() => act("/auction/unbid", { teamId: s.teamId })} className="text-bone-dim hover:text-red" aria-label="Rimuovi"><XIcon className="h-3.5 w-3.5" /></button>
                     </span>
@@ -220,27 +221,30 @@ export function AuctionRoom() {
               </ul>
             )}
 
-            <button onClick={resolve} disabled={busy} className={`${btn} w-full bg-acid text-carbon-950`}>
+            <Btn onClick={resolve} disabled={busy} full>
               {teamsToBid.length > 0 ? `Risolvi (mancano ${teamsToBid.length})` : "Risolvi"}
-            </button>
+            </Btn>
           </div>
         )}
 
         {/* Asta completa */}
         {state.allFull && !round && (
           <div className="space-y-2 text-center">
-            <p className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-widest text-acid"><FlagIcon className="mr-1.5 inline h-3.5 w-3.5 align-[-2px]" />Tutti i garage sono pieni</p>
+            <Label className="text-acid">
+              <FlagIcon className="mr-1.5 inline h-3.5 w-3.5 align-[-2px]" />
+              Tutti i garage sono pieni
+            </Label>
             {committed ? (
-              <p className="font-[family-name:var(--font-mono)] text-xs text-acid">Roster scritti. L&apos;asta è conclusa.</p>
+              <Note tone="ok">Roster scritti. L&apos;asta è conclusa.</Note>
             ) : (
-              <button onClick={commit} disabled={busy} className={`${btn} bg-acid text-carbon-950`}>Concludi asta → scrivi i roster</button>
+              <Btn onClick={commit} disabled={busy}>Concludi asta → scrivi i roster</Btn>
             )}
           </div>
         )}
 
-        {msg && <p className="mt-3 text-center font-[family-name:var(--font-mono)] text-xs text-acid">{msg}</p>}
-        {error && <p className="mt-3 text-center font-[family-name:var(--font-mono)] text-xs text-red">{error}</p>}
-      </div>
+        <Note tone="ok">{msg}</Note>
+        <Note tone="err">{error}</Note>
+      </Card>
     </div>
   );
 }
