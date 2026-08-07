@@ -103,7 +103,18 @@ già stabilito.
 | emoji usate come icone | 14 | **0** |
 | stringhe di classi duplicate ≥ 3× | 26 | 24 |
 
-**Nota onesta sull'ultima riga**: la duplicazione è scesa poco perché solo tre schermate
+## Verifica finale (misurata a schermo, non dichiarata)
+
+| Controllo | Come | Esito |
+|---|---|---|
+| Contrasto sul DOM **renderizzato** | luminanza relativa calcolata su 167 nodi di testo, sfondo risalito nell'albero, soglia 4.5 (3 per il testo grande) | **0 sotto soglia** |
+| Overflow orizzontale a 390 / 768 / 1280 px | `scrollWidth > clientWidth` + nodi oltre il bordo | **0 a tutti e tre** |
+| Movimento ridotto | animazioni annullate a runtime, poi misurata opacità e trasform dei 10 elementi animati | **0 invisibili** — il contenuto resta leggibile |
+| Console | `read_console_messages(onlyErrors)` | **pulita** |
+| Peso | dipendenze invariate (`next, react, react-dom, three`), nessun JS aggiunto; **CSS globale 8,1 KB gzip** in totale | ben dentro +15 KB |
+| Motore di punteggio | `gate.check.ts` 778 / 634 / 558 / 285 · `report.check.ts` 102 test · simulatore 33 test + 24/24 circuiti | **verdi** |
+
+**Nota onesta sulle stringhe duplicate**: la duplicazione è scesa poco perché solo tre schermate
 (home, classifica, report del round) sono state riscritte sulle primitive di `components/ui.tsx`.
 Le altre ereditano token, materia e tipografia — cambiano aspetto — ma conservano il loro
 markup. Convertirle è lavoro meccanico rimasto in coda, non un difetto di direzione.
