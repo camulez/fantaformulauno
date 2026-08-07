@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import { buildGeometry, getTrack, worldAt, TrackGeom } from "@/lib/sim/track";
+import { buildGeometry, getTrack, worldAt, rightNormal } from "@/lib/sim/track";
 import { createCar, step, TICK, formatTime, isOffTrack, CarState } from "@/lib/sim/physics";
 
 type Phase = "ready" | "warmup" | "timed" | "done";
@@ -60,7 +60,9 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
     if (!mount) return;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    // Sui telefoni il rapporto pixel è spesso 3: renderizzare a 3× costa 9 volte più di
+    // 1× e su una pista non serve. 1.5 è il compromesso che tiene la fluidità.
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     renderer.setSize(mount.clientWidth, mount.clientHeight);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -100,11 +102,11 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
     sun.shadow.camera.near = 1;
-    sun.shadow.camera.far = 320;
-    sun.shadow.camera.left = -90;
-    sun.shadow.camera.right = 90;
-    sun.shadow.camera.top = 90;
-    sun.shadow.camera.bottom = -90;
+    sun.shadow.camera.far = 260;
+    sun.shadow.camera.left = -55;
+    sun.shadow.camera.right = 55;
+    sun.shadow.camera.top = 55;
+    sun.shadow.camera.bottom = -55;
     sun.shadow.bias = -0.0007;
     scene.add(sun);
     scene.add(sun.target);
@@ -120,10 +122,8 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
 
     const n = geom.points.length;
     const hw = geom.roadWidth / 2;
-    const normalAt = (i: number) => {
-      const h = geom.headings[i];
-      return { nx: Math.cos(h), nz: -Math.sin(h) };
-    };
+    // Stessa normale usata dalla fisica (lib/sim/track.ts): scostamento positivo = destra.
+    const normalAt = (i: number) => rightNormal(geom.headings[i]);
 
     // Distanza dal punto più vicino della linea centrale. Un circuito cittadino si ripiega
     // su sé stesso: un oggetto messo "di fianco" a un tratto può finire in mezzo a un ALTRO
@@ -376,6 +376,8 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
     let fpsAcc = 0;
     let fps = 0;
     let running = true;
+    let quality = 2; // 2 = ombre + 1.5×, 1 = senza ombre, 0 = anche risoluzione ridotta
+    let lowCount = 0;
     const camDir = new THREE.Vector3();
 
     const onResize = () => {
@@ -411,6 +413,26 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
         fps = Math.round(frames / fpsAcc);
         frames = 0;
         fpsAcc = 0;
+        // Calo di qualità automatico: meglio rinunciare alle ombre che andare a scatti.
+        // Prima si spengono le ombre, poi si abbassa la risoluzione.
+        if (fps > 0 && fps < 38) {
+          lowCount++;
+          if (lowCount >= 2 && quality === 2) {
+            quality = 1;
+            renderer.shadowMap.enabled = false;
+            scene.traverse((o) => {
+              const mat = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+              if (Array.isArray(mat)) mat.forEach((m) => (m.needsUpdate = true));
+              else if (mat) mat.needsUpdate = true;
+            });
+          } else if (lowCount >= 5 && quality === 1) {
+            quality = 0;
+            renderer.setPixelRatio(1);
+            onResize();
+          }
+        } else if (fps >= 46) {
+          lowCount = 0;
+        }
       }
 
       const car = carRef.current;
@@ -449,8 +471,9 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
 
       // camera in abitacolo
       const w = worldAt(geom, car.s, car.lateral);
-      const heading = w.heading + car.yaw;
-      const shake = Math.min(car.speed / 82, 1) * 0.035;
+      // yaw positivo = muso verso la DESTRA del pilota; nel mondo l'angolo di rotta cala.
+      const heading = w.heading - car.yaw;
+      const shake = Math.min(car.speed / 82, 1) * 0.016;
       // Camera più alta e leggermente inclinata verso il basso: in verticale serve vedere
       // la pista che arriva, non il cofano.
       camera.position.set(w.x, 1.5 + Math.sin(now / 70) * shake * 0.5, w.z);
@@ -549,13 +572,6 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
   }, [geom]);
 
   const marker = map.pts[Math.min(map.pts.length - 1, Math.floor(hud.u * map.pts.length))];
-  const doneD = useMemo(() => {
-    const upTo = Math.floor(hud.u * map.pts.length);
-    return map.pts
-      .slice(0, Math.max(2, upTo))
-      .map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`)
-      .join(" ");
-  }, [hud.u, map.pts]);
 
   const mono = "font-[family-name:var(--font-mono)]";
 
@@ -612,7 +628,19 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
           </div>
           <svg viewBox="-85 -40 170 80" className="mt-1 h-16 w-full">
             <path d={map.d} fill="none" stroke="currentColor" className="text-bone-dim/45" strokeWidth="2.4" strokeLinejoin="round" />
-            <path d={doneD} fill="none" stroke="#c6ff3a" strokeWidth="2.6" strokeLinejoin="round" strokeLinecap="round" />
+            {/* Il tratto percorso si rivela con la tratteggiatura su pathLength=1: un solo
+                attributo che cambia, invece di ricostruire un tracciato da 500+ punti a ogni
+                aggiornamento (era una causa di scatti). */}
+            <path
+              d={map.d}
+              fill="none"
+              stroke="#c6ff3a"
+              strokeWidth="2.6"
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              pathLength={1}
+              strokeDasharray={`${Math.max(0.001, hud.u)} 1`}
+            />
             {marker && <circle cx={marker[0]} cy={marker[1]} r="3.4" fill="#fff" />}
           </svg>
         </div>

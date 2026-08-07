@@ -93,10 +93,15 @@ export function buildGeometry(def: TrackDef): TrackGeom {
   let z = 0;
   let heading = 0; // 0 = verso +z
 
+  // CONVENZIONE DEI SEGNI (fonte di un bug di sterzo invertito, va tenuta ferma):
+  // la direzione di marcia è (sin h, cos h). Guardando avanti, la DESTRA del pilota è
+  // (-cos h, sin h) — non (+cos h, -sin h) — e di conseguenza aumentare `h` significa
+  // curvare a SINISTRA. Qui si nega l'angolo così che `deg` positivo = curva a destra,
+  // coerentemente con `curvature` e con la fisica.
   for (const op of def.ops) {
     const steps = Math.max(1, Math.round(op.len / STEP));
     const dStep = op.len / steps;
-    const dTheta = op.kind === "t" ? ((op.deg * Math.PI) / 180) / steps : 0;
+    const dTheta = op.kind === "t" ? -((op.deg * Math.PI) / 180) / steps : 0;
     for (let i = 0; i < steps; i++) {
       pts.push({ x, z });
       heading += dTheta;
@@ -137,7 +142,8 @@ export function buildGeometry(def: TrackDef): TrackGeom {
     while (d > Math.PI) d -= Math.PI * 2;
     while (d < -Math.PI) d += Math.PI * 2;
     const segLen = Math.max(0.001, (distance[(i + 1) % n] || acc) - distance[i] || STEP);
-    curvature[i] = d / segLen;
+    // negata: aumentare l'angolo di rotta = curva a sinistra, quindi curvatura POSITIVA = destra
+    curvature[i] = -d / segLen;
   }
 
   return { points: pts, headings, curvature, distance, length: acc, roadWidth: def.roadWidth };
@@ -157,13 +163,16 @@ export function curvatureAt(geom: TrackGeom, s: number): number {
   return geom.curvature[sampleAt(geom, s)];
 }
 
+/** Normale verso la DESTRA del pilota (vedi convenzione dei segni in buildGeometry). */
+export function rightNormal(h: number) {
+  return { nx: -Math.cos(h), nz: Math.sin(h) };
+}
+
 /** Posizione nel mondo a una data distanza e scostamento laterale (positivo = destra). */
 export function worldAt(geom: TrackGeom, s: number, lateral: number) {
   const i = sampleAt(geom, s);
   const p = geom.points[i];
   const h = geom.headings[i];
-  // normale a destra rispetto alla direzione di marcia
-  const nx = Math.cos(h);
-  const nz = -Math.sin(h);
+  const { nx, nz } = rightNormal(h);
   return { x: p.x + nx * lateral, z: p.z + nz * lateral, heading: h };
 }

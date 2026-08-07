@@ -27,8 +27,8 @@ export interface Input {
 }
 
 export const MAX_SPEED = 82; // m/s ≈ 295 km/h
-export const STEER_RATE = 6.5; // reattività dello sterzo (rad/s a sterzo tutto)
 export const GRIP = 15.5; // accelerazione laterale massima (m/s²) prima di allargare
+export const R_MIN = 11; // raggio di sterzata minimo in metri (sterzo tutto a fondo)
 
 const ENGINE = 26; // m/s² a velocità nulla, decrescente
 const BRAKE = 42; // m/s²
@@ -46,10 +46,13 @@ export function cornerSpeedLimit(k: number): number {
   return Math.min(MAX_SPEED, Math.sqrt(GRIP / a));
 }
 
-/** Sterzo necessario per seguire una curvatura k alla velocità data. */
-export function steerForCurvature(k: number, speed: number): number {
-  if (speed < 1) return 0;
-  return Math.max(-1, Math.min(1, (k * speed) / STEER_RATE));
+/**
+ * Sterzo necessario per seguire una curvatura k. Con il modello a raggio minimo la
+ * velocità di imbardata è `steer · v / R_MIN`, che deve valere `k · v`: la velocità
+ * si semplifica e lo sterzo richiesto dipende solo dalla curvatura.
+ */
+export function steerForCurvature(k: number): number {
+  return Math.max(-1, Math.min(1, k * R_MIN));
 }
 
 export function createCar(): CarState {
@@ -85,9 +88,11 @@ export function step(car: CarState, input: Input, geom: TrackGeom): CarState {
   // La macchina ruota per effetto dello sterzo; la pista ruota per effetto della curvatura.
   // La differenza è l'errore di direzione, che sposta l'auto attraverso la pista.
   const grip = off ? GRIP * OFF_GRIP : GRIP;
-  // A velocità alta lo sterzo è limitato dall'aderenza: oltre il limite si allarga.
-  const maxTurnRate = car.speed > 1 ? grip / car.speed : STEER_RATE;
-  const steerRate = Math.sign(car.steer) * Math.min(Math.abs(car.steer) * STEER_RATE, maxTurnRate);
+  // Velocità di imbardata richiesta dallo sterzo (modello a raggio minimo), poi limitata
+  // dall'aderenza: oltre il limite la macchina allarga invece di girare di più.
+  const desiredRate = (car.steer * car.speed) / R_MIN;
+  const maxTurnRate = car.speed > 1 ? grip / car.speed : 2.5;
+  const steerRate = Math.max(-maxTurnRate, Math.min(maxTurnRate, desiredRate));
 
   const trackTurnRate = k * car.speed;
   car.yaw += (steerRate - trackTurnRate) * dt;

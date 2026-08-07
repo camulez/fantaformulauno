@@ -1,5 +1,5 @@
 // Test dei moduli puri del simulatore. Esegui: cd frontend && npx tsx lib/sim/physics.check.ts
-import { MONACO, buildGeometry, curvatureAt, worldAt, STEP } from "./track";
+import { MONACO, buildGeometry, curvatureAt, worldAt, rightNormal, sampleAt, STEP } from "./track";
 import {
   createCar,
   step,
@@ -57,6 +57,56 @@ const geom = buildGeometry(MONACO);
 
   // Esistono curve in entrambe le direzioni.
   check("curve a destra e a sinistra", Math.max(...geom.curvature) > 0.005 && Math.min(...geom.curvature) < -0.005);
+}
+
+// ── 1b. CONVENZIONE DEI SEGNI ──
+// Questo blocco esiste perché lo sterzo risultava invertito: c'erano DUE errori di segno
+// (normale "destra" e verso della curvatura) che si annullavano nel comportamento in curva
+// ma non nei comandi. Qui si verifica la geometria vera, non la coerenza interna.
+{
+  const square = buildGeometry({
+    roundNo: 99,
+    code: "TST",
+    name: "Quadrato a destra",
+    roadWidth: 10,
+    ops: [
+      { kind: "s", len: 120 }, { kind: "t", len: 90, deg: 90 },
+      { kind: "s", len: 120 }, { kind: "t", len: 90, deg: 90 },
+      { kind: "s", len: 120 }, { kind: "t", len: 90, deg: 90 },
+      { kind: "s", len: 120 }, { kind: "t", len: 90, deg: 90 },
+    ],
+  });
+  const avg = square.curvature.reduce((a, b) => a + b, 0) / square.curvature.length;
+  check("gradi positivi → curvatura positiva (destra)", avg > 0, `media ${avg.toFixed(4)}`);
+
+  // Dove la curvatura è positiva la pista deve piegare verso la DESTRA del pilota.
+  let idx = -1;
+  for (let t = 0; t < square.curvature.length; t++) {
+    if (square.curvature[t] > 0.005) {
+      idx = t;
+      break;
+    }
+  }
+  check("esiste un tratto in curva", idx >= 0);
+  if (idx >= 0) {
+    const rn = rightNormal(square.headings[idx]);
+    const j = (idx + 8) % square.points.length;
+    const dx = square.points[j].x - square.points[idx].x;
+    const dz = square.points[j].z - square.points[idx].z;
+    check(
+      "in curva a destra il tracciato si sposta verso destra",
+      dx * rn.nx + dz * rn.nz > 0,
+      `proiezione ${(dx * rn.nx + dz * rn.nz).toFixed(2)}`
+    );
+  }
+
+  // Scostamento laterale positivo = alla destra del pilota, nel mondo.
+  const c0 = worldAt(geom, 0, 0);
+  const c1 = worldAt(geom, 0, 6);
+  const rn0 = rightNormal(geom.headings[sampleAt(geom, 0)]);
+  const px = c1.x - c0.x;
+  const pz = c1.z - c0.z;
+  check("lateral positivo = destra del pilota", px * rn0.nx + pz * rn0.nz > 5.9);
 }
 
 // ── 2. worldAt: coerenza posizione/scostamento ──
@@ -135,7 +185,7 @@ const geom = buildGeometry(MONACO);
     const vLimit = cornerSpeedLimit(kAhead);
     const brake = car.speed > vLimit * 1.05;
 
-    const base = steerForCurvature(kNow, car.speed);
+    const base = steerForCurvature(kNow);
     const correction = -car.lateral * 0.012 - car.yaw * 1.6;
     const steer = Math.max(-1, Math.min(1, base + correction));
     step(car, { steer, brake }, geom);
