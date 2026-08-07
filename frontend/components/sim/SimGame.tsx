@@ -11,9 +11,9 @@ import { createCar, step, TICK, formatTime, isOffTrack, CarState } from "@/lib/s
 
 type Phase = "ready" | "warmup" | "timed" | "done";
 
-const SKY_TOP = 0x2f6f9e;
-const SKY_BOT = 0xcfe3ea;
-const FOG_COLOR = 0xb9d3dd;
+const SKY_TOP = 0x1d5c93;
+const SKY_BOT = 0xdceff4;
+const FOG_COLOR = 0xc2dae2;
 
 export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
   const def = useMemo(() => getTrack(roundNo), [roundNo]);
@@ -96,9 +96,14 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
     );
     scene.add(new THREE.Mesh(skyGeo, skyMat));
 
-    // ── luci ──
-    scene.add(new THREE.HemisphereLight(0xdff0f7, 0x4a5340, 0.85));
-    const sun = new THREE.DirectionalLight(0xfff4e2, 1.35);
+    // Tone mapping filmico: costa una manciata di istruzioni nello shader finale ma dà
+    // molta più profondità ai colori. Nessun passaggio di rendering aggiuntivo.
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.25;
+
+    // ── luci ── meno luce ambientale e sole più forte = ombreggiatura più leggibile
+    scene.add(new THREE.HemisphereLight(0xdff0f7, 0x45502f, 0.62));
+    const sun = new THREE.DirectionalLight(0xfff2d8, 1.85);
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
     sun.shadow.camera.near = 1;
@@ -113,7 +118,7 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
 
     // ── terreno ──
     const groundGeo = track(new THREE.PlaneGeometry(6000, 6000));
-    const groundMat = track(new THREE.MeshLambertMaterial({ color: 0x59683f }));
+    const groundMat = track(new THREE.MeshLambertMaterial({ color: 0x4d5f31 }));
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -0.06;
@@ -172,7 +177,7 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
       g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
       g.setIndex(idx);
       g.computeVertexNormals();
-      const m = track(new THREE.MeshLambertMaterial({ color: 0x4a4d55, side: THREE.DoubleSide }));
+      const m = track(new THREE.MeshLambertMaterial({ color: 0x3c3f46, side: THREE.DoubleSide }));
       const road = new THREE.Mesh(g, m);
       road.receiveShadow = true;
       scene.add(road);

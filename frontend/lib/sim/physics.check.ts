@@ -1,5 +1,15 @@
 // Test dei moduli puri del simulatore. Esegui: cd frontend && npx tsx lib/sim/physics.check.ts
-import { MONACO, buildGeometry, curvatureAt, worldAt, rightNormal, sampleAt, STEP } from "./track";
+import {
+  MONACO,
+  buildGeometry,
+  curvatureAt,
+  worldAt,
+  rightNormal,
+  sampleAt,
+  minSelfDistance,
+  minRadius,
+  STEP,
+} from "./track";
 import {
   createCar,
   step,
@@ -9,6 +19,7 @@ import {
   formatTime,
   cornerSpeedLimit,
   steerForCurvature,
+  GRIP,
   Input,
 } from "./physics";
 
@@ -51,9 +62,20 @@ const geom = buildGeometry(MONACO);
   }
   check("giro completo ≈ 360°", Math.abs(Math.abs(total) - Math.PI * 2) < 0.35, `${((total * 180) / Math.PI).toFixed(1)}°`);
 
-  // Il tornante deve esistere: da qualche parte la curvatura è molto alta.
-  const maxK = Math.max(...geom.curvature.map(Math.abs));
-  check("presenza di un tornante stretto", maxK > 0.03, `raggio min ${(1 / maxK).toFixed(1)} m`);
+  // ── VINCOLI DI GUIDABILITÀ (richiesti dall'utente dopo la prima prova) ──
+  const rMin = minRadius(geom);
+  check("nessuna curva più stretta di 30 m di raggio", rMin > 30, `curva più stretta: R ${rMin.toFixed(1)} m`);
+
+  const selfD = minSelfDistance(geom);
+  check(
+    "la pista non passa mai vicino a sé stessa",
+    selfD > geom.roadWidth + 10,
+    `avvicinamento minimo ${selfD.toFixed(1)} m (larghezza pista ${geom.roadWidth} m)`
+  );
+
+  // La curva più stretta deve essere percorribile a una velocità sensata.
+  const vTight = Math.sqrt(GRIP / (1 / rMin));
+  check("la curva più stretta è percorribile sopra i 70 km/h", vTight * 3.6 > 70, `${(vTight * 3.6).toFixed(0)} km/h`);
 
   // Esistono curve in entrambe le direzioni.
   check("curve a destra e a sinistra", Math.max(...geom.curvature) > 0.005 && Math.min(...geom.curvature) < -0.005);

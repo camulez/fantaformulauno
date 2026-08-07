@@ -36,41 +36,38 @@ export const STEP = 4;
 const s = (len: number): Op => ({ kind: "s", len });
 const t = (len: number, deg: number): Op => ({ kind: "t", len, deg });
 
-// Monaco: lento e stretto, con il tornante del Grand Hotel e la sezione piscina.
-// Gli angoli sommano a 360° (un circuito chiuso compie esattamente un giro completo):
-// i rettilinei "veri" hanno una leggera curvatura opposta, come nella realtà.
+// Monaco — versione GUIDABILE. Due vincoli, verificati dai test in physics.check.ts:
+//  1. nessuna curva più stretta di ~30 m di raggio (con un tornante vero non si sta in pista);
+//  2. il tracciato non passa mai vicino a sé stesso, altrimenti cordoli e barriere di un
+//     tratto finiscono in mezzo a un altro tratto, di traverso alla direzione di marcia.
+// Gli angoli sommano a 360°, come deve fare un circuito chiuso. Non riproduce la planimetria
+// reale di Monaco: ne conserva il carattere (cittadino, curve medio-lente, muri vicini).
 export const MONACO: TrackDef = {
   roundNo: 8,
   code: "MON",
   name: "Monaco",
-  roadWidth: 11,
+  roadWidth: 14,
   ops: [
-    s(250), //                    rettilineo dei box
-    t(60, 85), //                 Sainte Dévote
-    t(250, -60), //               Beau Rivage, in salita
-    t(90, -100), //               Massenet
-    t(70, 75), //                 Casino
+    s(420), //             rettilineo dei box
+    t(60, 55), //          curva veloce a destra  · R ≈ 62 m
+    s(120),
+    t(50, 80), //          tornantino a destra    · R ≈ 36 m
+    s(90),
+    t(30, -35), //         piega a sinistra       · R ≈ 49 m
+    s(110),
+    t(80, 80), //          curva lunga a destra   · R ≈ 57 m
+    s(150),
+    t(40, 60), //          destra secca           · R ≈ 38 m
     s(80),
-    t(55, 85), //                 Mirabeau
-    s(40),
-    t(45, 160), //                Tornante del Grand Hotel
-    s(50),
-    t(60, 70), //                 Portier
-    t(450, -70), //               tunnel
-    t(150, 40), //                uscita tunnel
-    s(60),
-    t(40, -60), //                Nouvelle Chicane
-    t(40, 65),
-    t(180, -60),
-    t(60, -85), //                Tabac
-    t(45, -55), //                Piscina
-    t(45, 60),
-    t(45, 55),
-    t(45, -50),
-    s(60),
-    t(45, 130), //                La Rascasse
-    s(50),
-    t(60, 75), //                 Anthony Noghès
+    t(55, -40), //         sinistra veloce        · R ≈ 79 m
+    s(130),
+    t(45, 70), //          destra stretta         · R ≈ 37 m
+    s(100),
+    t(70, 70), //          destra ampia           · R ≈ 57 m
+    s(160),
+    t(35, -30), //         piega a sinistra       · R ≈ 67 m
+    s(90),
+    t(50, 50), //          ultima a destra        · R ≈ 57 m
     s(120),
   ],
 };
@@ -161,6 +158,36 @@ export function sampleAt(geom: TrackGeom, s: number): number {
 /** Curvatura (rad/m) alla distanza indicata. */
 export function curvatureAt(geom: TrackGeom, s: number): number {
   return geom.curvature[sampleAt(geom, s)];
+}
+
+/**
+ * Distanza minima fra due punti NON contigui lungo il percorso: misura quanto il
+ * tracciato si avvicina a sé stesso. Se scende sotto la larghezza della pista, cordoli
+ * e barriere di un tratto finiscono in mezzo a un altro tratto (di traverso alla
+ * direzione di marcia) — da evitare sempre.
+ */
+export function minSelfDistance(geom: TrackGeom): number {
+  const n = geom.points.length;
+  const skip = Math.ceil(70 / STEP); // ignora i vicini entro 70 m di percorso
+  let best = Infinity;
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const gap = j - i;
+      if (Math.min(gap, n - gap) < skip) continue;
+      const a = geom.points[i];
+      const b = geom.points[j];
+      const d2 = (a.x - b.x) ** 2 + (a.z - b.z) ** 2;
+      if (d2 < best) best = d2;
+    }
+  }
+  return Math.sqrt(best);
+}
+
+/** Raggio della curva più stretta del tracciato, in metri. */
+export function minRadius(geom: TrackGeom): number {
+  let maxK = 0;
+  for (const k of geom.curvature) maxK = Math.max(maxK, Math.abs(k));
+  return maxK > 1e-6 ? 1 / maxK : Infinity;
 }
 
 /** Normale verso la DESTRA del pilota (vedi convenzione dei segni in buildGeometry). */

@@ -27,7 +27,7 @@ export interface Input {
 }
 
 export const MAX_SPEED = 82; // m/s ≈ 295 km/h
-export const GRIP = 15.5; // accelerazione laterale massima (m/s²) prima di allargare
+export const GRIP = 18; // accelerazione laterale massima (m/s²) prima di allargare
 export const R_MIN = 11; // raggio di sterzata minimo in metri (sterzo tutto a fondo)
 
 const ENGINE = 26; // m/s² a velocità nulla, decrescente
@@ -37,7 +37,7 @@ const ROLL = 1.2;
 const STEER_SMOOTH = 7.0; // quanto rapidamente lo sterzo raggiunge la posizione richiesta
 const OFF_DRAG = 14; // decelerazione fuori pista
 const OFF_GRIP = 0.42; // aderenza residua fuori pista
-const WALL_DRAG = 26; // decelerazione strisciando contro le barriere
+const WALL_DRAG = 17; // decelerazione strisciando contro le barriere
 
 /** Velocità massima con cui si può percorrere una curva di curvatura k senza allargare. */
 export function cornerSpeedLimit(k: number): number {
@@ -106,8 +106,11 @@ export function step(car: CarState, input: Input, geom: TrackGeom): CarState {
   // non azzerandola di colpo (un moltiplicatore per tick fermerebbe l'auto all'istante).
   const wall = geom.roadWidth / 2 + 6;
   if (car.lateral > wall || car.lateral < -wall) {
-    car.lateral = car.lateral > 0 ? wall : -wall;
-    car.yaw = 0;
+    const side = car.lateral > 0 ? 1 : -1;
+    car.lateral = side * wall;
+    // leggera imbardata verso l'interno: strisciando si riesce a rientrare, invece di
+    // restare incollati al muro fino a fermarsi
+    car.yaw = -side * 0.03;
     car.speed = Math.max(0, car.speed - WALL_DRAG * dt);
   }
 
