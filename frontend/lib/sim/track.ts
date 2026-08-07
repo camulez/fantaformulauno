@@ -48,27 +48,27 @@ export const MONACO: TrackDef = {
   name: "Monaco",
   roadWidth: 14,
   ops: [
-    s(420), //             rettilineo dei box
-    t(60, 55), //          curva veloce a destra  · R ≈ 62 m
-    s(120),
-    t(50, 80), //          tornantino a destra    · R ≈ 36 m
-    s(90),
-    t(30, -35), //         piega a sinistra       · R ≈ 49 m
+    s(380), //             rettilineo dei box
+    t(85, 55), //          curva veloce a destra  · R ≈ 88 m
     s(110),
-    t(80, 80), //          curva lunga a destra   · R ≈ 57 m
-    s(150),
-    t(40, 60), //          destra secca           · R ≈ 38 m
+    t(75, 80), //          destra media           · R ≈ 54 m  ← la più stretta
     s(80),
-    t(55, -40), //         sinistra veloce        · R ≈ 79 m
-    s(130),
-    t(45, 70), //          destra stretta         · R ≈ 37 m
+    t(45, -35), //         piega a sinistra       · R ≈ 74 m
     s(100),
-    t(70, 70), //          destra ampia           · R ≈ 57 m
-    s(160),
-    t(35, -30), //         piega a sinistra       · R ≈ 67 m
-    s(90),
-    t(50, 50), //          ultima a destra        · R ≈ 57 m
+    t(95, 80), //          curva lunga a destra   · R ≈ 68 m
+    s(130),
+    t(60, 60), //          destra                 · R ≈ 57 m
+    s(70),
+    t(55, -40), //         sinistra veloce        · R ≈ 79 m
     s(120),
+    t(70, 70), //          destra                 · R ≈ 57 m
+    s(90),
+    t(80, 70), //          destra ampia           · R ≈ 65 m
+    s(140),
+    t(35, -30), //         piega a sinistra       · R ≈ 67 m
+    s(80),
+    t(60, 50), //          ultima a destra        · R ≈ 69 m
+    s(110),
   ],
 };
 
@@ -155,9 +155,33 @@ export function sampleAt(geom: TrackGeom, s: number): number {
   return Math.min(geom.points.length - 1, Math.max(0, i));
 }
 
-/** Curvatura (rad/m) alla distanza indicata. */
+/**
+ * Posizione FRAZIONARIA fra due campioni. Serve per interpolare: leggere la linea
+ * centrale "a scatti" ogni 4 m faceva ruotare la camera a gradini nelle curve —
+ * percepito come scattoso anche con il frame rate a posto.
+ */
+function fracAt(geom: TrackGeom, s: number) {
+  const n = geom.points.length;
+  const len = geom.length;
+  let d = s % len;
+  if (d < 0) d += len;
+  const t = (d / len) * n;
+  const i = Math.floor(t) % n;
+  return { i, j: (i + 1) % n, f: t - Math.floor(t) };
+}
+
+/** Interpolazione fra due angoli passando dalla via più corta. */
+function lerpAngle(a: number, b: number, t: number): number {
+  let d = b - a;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return a + d * t;
+}
+
+/** Curvatura (rad/m) alla distanza indicata, interpolata fra i campioni. */
 export function curvatureAt(geom: TrackGeom, s: number): number {
-  return geom.curvature[sampleAt(geom, s)];
+  const { i, j, f } = fracAt(geom, s);
+  return geom.curvature[i] * (1 - f) + geom.curvature[j] * f;
 }
 
 /**
@@ -195,11 +219,18 @@ export function rightNormal(h: number) {
   return { nx: -Math.cos(h), nz: Math.sin(h) };
 }
 
-/** Posizione nel mondo a una data distanza e scostamento laterale (positivo = destra). */
+/**
+ * Posizione nel mondo a una data distanza e scostamento laterale (positivo = destra).
+ * Posizione e angolo di rotta sono INTERPOLATI fra i campioni: senza interpolazione la
+ * camera ruotava a gradini di ~4 m, e in curva si vedeva come uno scatto continuo.
+ */
 export function worldAt(geom: TrackGeom, s: number, lateral: number) {
-  const i = sampleAt(geom, s);
-  const p = geom.points[i];
-  const h = geom.headings[i];
+  const { i, j, f } = fracAt(geom, s);
+  const p0 = geom.points[i];
+  const p1 = geom.points[j];
+  const x = p0.x + (p1.x - p0.x) * f;
+  const z = p0.z + (p1.z - p0.z) * f;
+  const h = lerpAngle(geom.headings[i], geom.headings[j], f);
   const { nx, nz } = rightNormal(h);
-  return { x: p.x + nx * lateral, z: p.z + nz * lateral, heading: h };
+  return { x: x + nx * lateral, z: z + nz * lateral, heading: h };
 }

@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { buildGeometry, getTrack, worldAt, rightNormal } from "@/lib/sim/track";
-import { createCar, step, TICK, formatTime, isOffTrack, CarState } from "@/lib/sim/physics";
+import { createCar, step, TICK, formatTime, isOffTrack, assistedBrake, CarState } from "@/lib/sim/physics";
 
 type Phase = "ready" | "warmup" | "timed" | "done";
 
@@ -27,7 +27,7 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
   const timeRef = useRef(0);
 
   const [phase, setPhase] = useState<Phase>("ready");
-  const [hud, setHud] = useState({ speed: 0, time: 0, u: 0, fps: 0, off: false });
+  const [hud, setHud] = useState({ speed: 0, time: 0, u: 0, fps: 0, off: false, assist: false });
   const [result, setResult] = useState<number | null>(null);
   const [best, setBest] = useState<number | null>(null);
 
@@ -383,6 +383,7 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
     let running = true;
     let quality = 2; // 2 = ombre + 1.5×, 1 = senza ombre, 0 = anche risoluzione ridotta
     let lowCount = 0;
+    let assistOn = false;
     const camDir = new THREE.Vector3();
 
     const onResize = () => {
@@ -448,7 +449,13 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
         acc += dtReal;
         let guard = 0;
         while (acc >= TICK && guard < 12) {
-          step(car, inputRef.current, geom);
+          // frenata assistita: frena da sola per la curva in arrivo
+          assistOn = assistedBrake(car, geom);
+          step(
+            car,
+            { steer: inputRef.current.steer, brake: inputRef.current.brake || assistOn },
+            geom
+          );
           acc -= TICK;
           guard++;
           if (ph === "timed") timeRef.current += TICK * 1000;
@@ -498,7 +505,7 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
       renderer.render(scene, camera);
 
       hudAcc += dtReal;
-      if (hudAcc > 0.09) {
+      if (hudAcc > 0.14) {
         hudAcc = 0;
         setHud({
           speed: car.speed,
@@ -506,6 +513,7 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
           u: ((car.s % geom.length) + geom.length) % geom.length / geom.length,
           fps,
           off: isOffTrack(car, geom),
+          assist: assistOn,
         });
       }
     };
@@ -669,9 +677,17 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
             onPointerUp={() => (inputRef.current.brake = false)}
             onPointerLeave={() => (inputRef.current.brake = false)}
             aria-label="Freno"
-            className="h-20 w-20 shrink-0 rounded-2xl border border-red/40 bg-red/15 active:bg-red/30"
+            className={`h-20 w-20 shrink-0 rounded-2xl border transition-colors ${
+              hud.assist ? "border-acid bg-acid/25" : "border-red/40 bg-red/15 active:bg-red/30"
+            }`}
           >
-            <span className={`${mono} text-[10px] font-bold uppercase tracking-widest text-red`}>Freno</span>
+            <span
+              className={`${mono} text-[10px] font-bold uppercase tracking-widest ${
+                hud.assist ? "text-acid" : "text-red"
+              }`}
+            >
+              {hud.assist ? "Auto" : "Freno"}
+            </span>
           </button>
           <button
             {...hold(1)}

@@ -55,6 +55,22 @@ export function steerForCurvature(k: number): number {
   return Math.max(-1, Math.min(1, k * R_MIN));
 }
 
+/**
+ * Frenata assistita: guarda avanti quanto serve per fermarsi in tempo e dice se bisogna
+ * già frenare per la curva che arriva. È una funzione PURA dello stato: non rompe il
+ * determinismo del giro (stessa situazione → stessa decisione).
+ */
+export function assistedBrake(car: CarState, geom: TrackGeom): boolean {
+  if (car.speed < 12) return false;
+  const lookahead = 30 + (car.speed * car.speed) / (2 * 30);
+  let limit = Infinity;
+  for (let d = 12; d <= lookahead; d += 8) {
+    const v = cornerSpeedLimit(curvatureAt(geom, car.s + d));
+    if (v < limit) limit = v;
+  }
+  return car.speed > limit * 1.06;
+}
+
 export function createCar(): CarState {
   return { s: 0, lateral: 0, speed: 0, yaw: 0, steer: 0 };
 }

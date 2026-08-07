@@ -19,6 +19,7 @@ import {
   formatTime,
   cornerSpeedLimit,
   steerForCurvature,
+  assistedBrake,
   GRIP,
   Input,
 } from "./physics";
@@ -129,6 +130,61 @@ const geom = buildGeometry(MONACO);
   const px = c1.x - c0.x;
   const pz = c1.z - c0.z;
   check("lateral positivo = destra del pilota", px * rn0.nx + pz * rn0.nz > 5.9);
+}
+
+// ── 1c. CONTINUITÀ (causa degli scatti in curva) ──
+// La linea centrale è campionata ogni 4 m: senza interpolazione l'angolo di rotta restava
+// costante e poi saltava di colpo, e in curva si vedeva come uno scatto continuo.
+{
+  let maxJump = 0;
+  let prev = worldAt(geom, 0, 0).heading;
+  for (let s = 0.5; s < geom.length; s += 0.5) {
+    const h = worldAt(geom, s, 0).heading;
+    let d = h - prev;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    if (Math.abs(d) > maxJump) maxJump = Math.abs(d);
+    prev = h;
+  }
+  // con raggio minimo ~54 m, in mezzo metro la rotta cambia di ~0.009 rad
+  check(
+    "la rotta varia con continuità (niente scatti in curva)",
+    maxJump < 0.02,
+    `salto massimo ${maxJump.toFixed(4)} rad su 0,5 m`
+  );
+
+  let maxPosJump = 0;
+  let pp = worldAt(geom, 0, 0);
+  for (let s = 0.5; s < geom.length; s += 0.5) {
+    const p = worldAt(geom, s, 0);
+    maxPosJump = Math.max(maxPosJump, Math.hypot(p.x - pp.x, p.z - pp.z));
+    pp = p;
+  }
+  check("la posizione avanza con continuità", maxPosJump < 0.8, `${maxPosJump.toFixed(2)} m`);
+}
+
+// ── 1d. FRENATA ASSISTITA ──
+{
+  let kMaxI = 0;
+  for (let i = 0; i < geom.curvature.length; i++) {
+    if (Math.abs(geom.curvature[i]) > Math.abs(geom.curvature[kMaxI])) kMaxI = i;
+  }
+  const sCorner = geom.distance[kMaxI];
+
+  const fast = createCar();
+  fast.s = sCorner - 80;
+  fast.speed = 78;
+  check("l'assistenza frena prima della curva più stretta", assistedBrake(fast, geom));
+
+  const cruise = createCar();
+  cruise.s = 80;
+  cruise.speed = 24;
+  check("non frena sul rettilineo a velocità moderata", !assistedBrake(cruise, geom));
+
+  const slow = createCar();
+  slow.s = sCorner - 30;
+  slow.speed = 10;
+  check("non frena se si va già piano", !assistedBrake(slow, geom));
 }
 
 // ── 2. worldAt: coerenza posizione/scostamento ──
