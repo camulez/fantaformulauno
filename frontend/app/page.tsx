@@ -37,6 +37,12 @@ export default async function HomePage() {
         <div className="flex flex-col items-end gap-1.5">
           <div className="flex gap-3">
             <Link
+              href="/report"
+              className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-acid transition-colors hover:text-acid-deep"
+            >
+              Report
+            </Link>
+            <Link
               href="/bacheca"
               className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-widest text-bone-dim transition-colors hover:text-acid"
             >

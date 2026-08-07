@@ -32,6 +32,12 @@ export default async function RoundPage({ params }: { params: Promise<{ n: strin
               R{data!.round.round_no} · {data!.round.code}
             </h1>
           </div>
+          <Link
+            href={`/report/${data!.round.round_no}`}
+            className="rounded-lg border border-acid/40 bg-acid/5 px-3 py-1.5 font-[family-name:var(--font-mono)] text-[10px] font-bold uppercase tracking-widest text-acid transition-colors hover:bg-acid/10"
+          >
+            Il mio report
+          </Link>
         </div>
       </header>
 

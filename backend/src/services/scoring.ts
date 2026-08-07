@@ -150,3 +150,113 @@ export function computeSeasonTotal(
   const total = perRound.reduce((s, b) => s + b.total, 0);
   return { total, perRound };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SPIEGAZIONE DEL PUNTEGGIO (per il report di round)
+//
+// Funzione PURA e separata: i NUMERI vengono da computeTeamRound (unica autorità,
+// così report e classifica non possono divergere), qui si ricava solo il "da dove
+// arrivano". Le parti spiegate devono sempre sommare al numero del motore: è
+// esattamente ciò che verifica report.check.ts.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface CtorDriverLine {
+  driverId: string;
+  race: number;
+  sprint: number;
+  raceDeduction: DeductionKind;
+  sprintDeduction: DeductionKind;
+  counted: number; // quanto ha davvero contribuito al costruttore
+}
+
+export type SlotExplain =
+  | { slot: 'telaio' | 'motore'; points: number; fiaTeamId: string; drivers: CtorDriverLine[] }
+  | { slot: 'pilota1' | 'pilota2'; points: number; driverId: string; race: number; sprint: number }
+  | { slot: 'sponsor' | 'benzina'; points: number; fiaTeamId: string; carsScored: number; perCar: number };
+
+export interface RoundExplain {
+  breakdown: TeamRoundBreakdown;
+  slots: SlotExplain[];
+  pole: { poleDriverId: string | null; owned: boolean; points: number };
+  teamManager: { p1Scored: boolean; p2Scored: boolean; points: number };
+  drs: { slot: RosterSlot | null; bonus: number; scope: ScoringRules['drsScope']; multiplier: number };
+}
+
+export function explainTeamRound(
+  raw: RoundRaw,
+  roster: TeamRoster,
+  rules: ScoringRules,
+  drsSlot?: RosterSlot
+): RoundExplain {
+  const breakdown = computeTeamRound(raw, roster, rules, drsSlot);
+
+  const carScored = (d: string): boolean =>
+    (raw.race[d]?.points ?? 0) > 0 && ded(raw.race[d]) !== 'total';
+
+  const ctorLines = (fiaTeamId: string): CtorDriverLine[] =>
+    (raw.lineup[fiaTeamId] ?? []).map((d) => ({
+      driverId: d,
+      race: raw.race[d]?.points ?? 0,
+      sprint: raw.sprint[d]?.points ?? 0,
+      raceDeduction: ded(raw.race[d]),
+      sprintDeduction: ded(raw.sprint[d]),
+      counted: ctorSess(raw.race[d]) + ctorSess(raw.sprint[d]),
+    }));
+
+  const carsScored = (fiaTeamId: string): number =>
+    (raw.lineup[fiaTeamId] ?? []).filter(carScored).length;
+
+  const slots: SlotExplain[] = [
+    { slot: 'telaio', points: breakdown.telaio, fiaTeamId: roster.telaioTeamId, drivers: ctorLines(roster.telaioTeamId) },
+    { slot: 'motore', points: breakdown.motore, fiaTeamId: roster.motoreWorksTeamId, drivers: ctorLines(roster.motoreWorksTeamId) },
+    {
+      slot: 'pilota1',
+      points: breakdown.pilota1,
+      driverId: roster.p1DriverId,
+      race: raw.race[roster.p1DriverId]?.points ?? 0,
+      sprint: raw.sprint[roster.p1DriverId]?.points ?? 0,
+    },
+    {
+      slot: 'pilota2',
+      points: breakdown.pilota2,
+      driverId: roster.p2DriverId,
+      race: raw.race[roster.p2DriverId]?.points ?? 0,
+      sprint: raw.sprint[roster.p2DriverId]?.points ?? 0,
+    },
+    {
+      slot: 'sponsor',
+      points: breakdown.sponsor,
+      fiaTeamId: roster.sponsorTeamId,
+      carsScored: carsScored(roster.sponsorTeamId),
+      perCar: rules.sponsorPointsPerCar,
+    },
+    {
+      slot: 'benzina',
+      points: breakdown.benzina,
+      fiaTeamId: roster.benzinaTeamId,
+      carsScored: carsScored(roster.benzinaTeamId),
+      perCar: rules.benzinaPointsPerCar,
+    },
+  ];
+
+  return {
+    breakdown,
+    slots,
+    pole: {
+      poleDriverId: raw.poleDriverId ?? null,
+      owned: !!raw.poleDriverId && [roster.p1DriverId, roster.p2DriverId].includes(raw.poleDriverId),
+      points: breakdown.pole,
+    },
+    teamManager: {
+      p1Scored: carScored(roster.p1DriverId),
+      p2Scored: carScored(roster.p2DriverId),
+      points: breakdown.teamManager,
+    },
+    drs: {
+      slot: drsSlot ?? null,
+      bonus: breakdown.drsBonus,
+      scope: rules.drsScope,
+      multiplier: rules.drsMultiplier,
+    },
+  };
+}

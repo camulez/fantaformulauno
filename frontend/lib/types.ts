@@ -203,6 +203,66 @@ export interface ScoringRules {
   auction: AuctionRules;
 }
 
+// ─── Report per round ───
+export type ReportSlot = "telaio" | "motore" | "pilota1" | "pilota2" | "sponsor" | "benzina";
+export type Deduzione = "none" | "partial" | "total";
+
+export interface ReportCtorDriver {
+  name: string;
+  race: number;
+  sprint: number;
+  raceDeduction: Deduzione;
+  sprintDeduction: Deduzione;
+  counted: number;
+}
+interface ReportRowBase {
+  points: number;
+  label: string;
+  componentName: string;
+}
+// Unione discriminata su `slot`: così il frontend può restringere il tipo con uno switch.
+export type ReportRow =
+  | (ReportRowBase & { slot: "telaio" | "motore"; scuderia: string; drivers: ReportCtorDriver[] })
+  | (ReportRowBase & { slot: "pilota1" | "pilota2"; pilota: string; race: number; sprint: number })
+  | (ReportRowBase & { slot: "sponsor" | "benzina"; scuderia: string; carsScored: number; perCar: number });
+
+export interface RoundReport {
+  round: { round_no: number; code: string | null; name: string | null };
+  team: { teamId: string; name: string };
+  incomplete: boolean;
+  total: number;
+  position: number;
+  best: number;
+  rows: ReportRow[];
+  derived: {
+    pole: { points: number; driverName: string | null; owned: boolean };
+    teamManager: { p1Scored: boolean; p2Scored: boolean; points: number };
+    drs: {
+      slot: ReportSlot | null;
+      bonus: number;
+      scope: "race" | "race_sprint";
+      multiplier: number;
+      slotLabel: string | null;
+      componentName: string | null;
+    };
+  } | null;
+}
+
+export interface SeasonMatrixRow {
+  key: string;
+  label: string;
+  componentNames: string[];
+  points: number[];
+  total: number;
+}
+export interface SeasonMatrix {
+  team: { teamId: string; name: string };
+  rounds: { round_no: number; code: string | null }[];
+  rows: SeasonMatrixRow[];
+  columnTotals: number[];
+  grandTotal: number;
+}
+
 export interface ComponentValue {
   id: string;
   kind: AuctionKind;

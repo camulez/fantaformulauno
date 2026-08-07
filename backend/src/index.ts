@@ -14,6 +14,7 @@ import { messagesRouter } from './routes/messages';
 import { rolloverRouter } from './routes/rollover';
 import { auctionRouter } from './routes/auction';
 import { componentsRouter } from './routes/components';
+import { reportRouter } from './routes/report';
 
 const app = express();
 const PORT = process.env.PORT || 4200;
@@ -41,6 +42,7 @@ app.use('/messages', messagesRouter);
 app.use('/rollover', rolloverRouter);
 app.use('/auction', auctionRouter);
 app.use('/components', componentsRouter);
+app.use('/report', reportRouter);
 // Router successivi (montati man mano che le fasi avanzano):
 // app.use('/market', marketRouter);
 // app.use('/drs', drsRouter);
