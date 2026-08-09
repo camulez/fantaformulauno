@@ -3,6 +3,7 @@
 import { supabase } from '../db/supabase';
 import { DEFAULT_RULES, ScoringRules } from '../config/defaultRules';
 import { computeTeamRound, RoundRaw, RosterSlot, TeamRoster } from './scoring';
+import { loadSimulatorPoints } from './simulatorPointsData';
 
 export interface TeamStanding {
   teamId: string;
@@ -13,6 +14,8 @@ export interface TeamStanding {
   breakdown: {
     telaio: number; motore: number; pilota1: number; pilota2: number;
     sponsor: number; benzina: number; pole: number; teamManager: number; drsBonus: number;
+    /** Premio al miglior tempo sul simulatore. Vale 0 se `simulatorPoints` è spento. */
+    simulator: number;
   };
   // Spareggi: piazzamenti per-round (vittorie GP fantasy, 2°, 3°).
   gpWins: number;
@@ -132,26 +135,36 @@ export async function computeStandings(seasonId: string): Promise<StandingsResul
     };
   }
 
+  // Premio del simulatore: fuori da `computeTeamRound`, che resta la sola autorità sul
+  // punteggio vero e non deve sapere che il simulatore esiste.
+  const simPoints = await loadSimulatorPoints(seasonId, rules);
+
   const standings: TeamStanding[] = teams.map((t) => {
     const perRound: number[] = [];
     const cumulative: number[] = [];
-    const acc = { telaio: 0, motore: 0, pilota1: 0, pilota2: 0, sponsor: 0, benzina: 0, pole: 0, teamManager: 0, drsBonus: 0 };
+    const acc = { telaio: 0, motore: 0, pilota1: 0, pilota2: 0, sponsor: 0, benzina: 0, pole: 0, teamManager: 0, drsBonus: 0, simulator: 0 };
     let run = 0;
     for (const r of scoredRounds) {
+      const sim = simPoints.get(r.round_no)?.get(t.id) ?? 0;
       const roster = resolveRoster(t.id, r.round_no);
       const raw = rawByRound.get(r.id)!;
       if (!roster) {
-        perRound.push(0);
+        // Senza roster non ci sono punti di gara, ma il premio del simulatore è personale
+        // e si è comunque guadagnato: non dipende dalla rosa.
+        perRound.push(sim);
+        run += sim;
+        acc.simulator += sim;
         cumulative.push(run);
         continue;
       }
       const drsSlot = drsMap.get(t.id)?.get(r.id);
       const b = computeTeamRound(raw, roster, rules, drsSlot);
-      perRound.push(b.total);
-      run += b.total;
+      perRound.push(b.total + sim);
+      run += b.total + sim;
       cumulative.push(run);
       acc.telaio += b.telaio; acc.motore += b.motore; acc.pilota1 += b.pilota1; acc.pilota2 += b.pilota2;
       acc.sponsor += b.sponsor; acc.benzina += b.benzina; acc.pole += b.pole; acc.teamManager += b.teamManager; acc.drsBonus += b.drsBonus;
+      acc.simulator += sim;
     }
     return { teamId: t.id, name: t.name, total: run, perRound, cumulative, breakdown: acc, gpWins: 0, seconds: 0, thirds: 0 };
   });

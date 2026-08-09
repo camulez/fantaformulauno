@@ -83,12 +83,17 @@ seasonRouter.put('/rules', async (req, res) => {
     'benzinaPointsPerCar',
     'drsMultiplier',
     'drsPerSeason',
+    'simulatorPoints',
   ];
   for (const k of scalars) {
     if (!num(merged[k])) {
       res.status(400).json({ error: `Valore non valido: ${k}` });
       return;
     }
+  }
+  if (merged.simulatorPoints < 0) {
+    res.status(400).json({ error: 'I punti del simulatore non possono essere negativi' });
+    return;
   }
   if (merged.drsScope !== 'race' && merged.drsScope !== 'race_sprint') {
     res.status(400).json({ error: 'Ambito DRS non valido' });

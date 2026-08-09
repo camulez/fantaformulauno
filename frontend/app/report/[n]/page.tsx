@@ -83,7 +83,8 @@ export default async function ReportRoundPage({
   );
 
   const derived = rep.derived;
-  const bonusTot = derived ? derived.pole.points + derived.teamManager.points + derived.drs.bonus : 0;
+  const bonusTot =
+    (derived ? derived.pole.points + derived.teamManager.points + derived.drs.bonus : 0) + rep.simulator;
 
   return (
     <Screen>
@@ -232,6 +233,18 @@ export default async function ReportRoundPage({
                             }`
                           : "non giocato in questa gara",
                       },
+                      // Compare solo se il premio è acceso: a 0 sarebbe una riga che non
+                      // spiega niente in ogni scheda di ogni round.
+                      ...(rep.simulator > 0
+                        ? [
+                            {
+                              k: "sim",
+                              nome: "Simulatore",
+                              pt: rep.simulator,
+                              det: "miglior tempo sul circuito",
+                            },
+                          ]
+                        : []),
                     ].map((b) => (
                       <DataRow key={b.k}>
                         <div className="flex items-baseline justify-between gap-3">

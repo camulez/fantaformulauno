@@ -12,7 +12,7 @@ function assert(name: string, cond: boolean) {
 function team(name: string, over: Partial<TeamStanding>): TeamStanding {
   return {
     teamId: name, name, total: 100, perRound: [], cumulative: [],
-    breakdown: { telaio: 0, motore: 0, pilota1: 0, pilota2: 0, sponsor: 0, benzina: 0, pole: 0, teamManager: 0, drsBonus: 0 },
+    breakdown: { telaio: 0, motore: 0, pilota1: 0, pilota2: 0, sponsor: 0, benzina: 0, pole: 0, teamManager: 0, drsBonus: 0, simulator: 0 },
     gpWins: 0, seconds: 0, thirds: 0, ...over,
   };
 }

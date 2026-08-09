@@ -89,7 +89,7 @@ export function RulesForm({ initial }: { initial: ScoringRules }) {
     k,
   }: {
     label: string;
-    k: "polePoints" | "teamManagerPoints" | "sponsorPointsPerCar" | "benzinaPointsPerCar" | "fastestLapPoint" | "drsMultiplier" | "drsPerSeason";
+    k: "polePoints" | "teamManagerPoints" | "sponsorPointsPerCar" | "benzinaPointsPerCar" | "fastestLapPoint" | "drsMultiplier" | "drsPerSeason" | "simulatorPoints";
   }) => (
     <label className="flex items-center justify-between gap-3">
       <span className="text-sm text-bone">{label}</span>
@@ -131,6 +131,28 @@ export function RulesForm({ initial }: { initial: ScoringRules }) {
           </select>
         </label>
         <Field label="DRS disponibili a stagione" k="drsPerSeason" />
+      </section>
+
+      <section className="panel rounded-xl p-4 space-y-3">
+        <p className={labelCls}>Simulatore</p>
+        <Field label="Punti al miglior tempo sul circuito" k="simulatorPoints" />
+        <p className="note">
+          {r.simulatorPoints > 0 ? (
+            <>
+              Chi fa il miglior tempo su un circuito porta{" "}
+              <span className="text-acid">
+                {r.simulatorPoints} {r.simulatorPoints === 1 ? "punto" : "punti"}
+              </span>{" "}
+              alla sua scuderia. Si assegnano quando il GP viene disputato, cioè quando la classifica
+              dei tempi si chiude.
+            </>
+          ) : (
+            <>
+              A <span className="text-bone">0</span> il simulatore resta un gioco a parte e non tocca
+              il campionato. Metti <span className="text-bone">1</span> per farlo contare.
+            </>
+          )}
+        </p>
       </section>
 
       <section className="panel rounded-xl p-4 space-y-3">

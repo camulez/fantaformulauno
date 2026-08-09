@@ -85,6 +85,8 @@ export interface StandingBreakdown {
   pole: number;
   teamManager: number;
   drsBonus: number;
+  /** Premio simulatore. 0 se `simulatorPoints` è spento o se non hai vinto nessun circuito. */
+  simulator: number;
 }
 
 export interface TeamStanding {
@@ -200,6 +202,8 @@ export interface ScoringRules {
   drsMultiplier: number;
   drsScope: "race" | "race_sprint";
   drsPerSeason: number;
+  /** Punti di campionato a chi fa il miglior tempo al simulatore. 0 = premio spento. */
+  simulatorPoints: number;
   auction: AuctionRules;
 }
 
@@ -246,6 +250,8 @@ export interface RoundReport {
       componentName: string | null;
     };
   } | null;
+  /** Premio simulatore su questo round: 0 se spento o se il miglior tempo non è tuo. */
+  simulator: number;
 }
 
 export interface SeasonMatrixRow {

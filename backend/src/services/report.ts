@@ -4,6 +4,7 @@
 
 import { supabase } from '../db/supabase';
 import { DEFAULT_RULES, ScoringRules } from '../config/defaultRules';
+import { loadSimulatorPoints } from './simulatorPointsData';
 import {
   computeTeamRound,
   explainTeamRound,
@@ -132,7 +133,11 @@ async function loadReportData(seasonId: string) {
     };
   }
 
-  return { rules, scoredRounds, teams, driverName, fiaName, rawByRound, drsMap, componentsAt, rosterAt };
+  // Premio del simulatore: stessa fonte usata da standings.ts, così le due viste non
+  // possono divergere (è quello che verifica report.check.ts).
+  const simPoints = await loadSimulatorPoints(seasonId, rules);
+
+  return { rules, scoredRounds, teams, driverName, fiaName, rawByRound, drsMap, componentsAt, rosterAt, simPoints };
 }
 
 /** Sostituisce gli id con i nomi, così il frontend deve solo formattare. */
@@ -187,16 +192,21 @@ export async function teamRoundReport(seasonId: string, teamId: string, roundNo:
 
   const raw = d.rawByRound.get(round.id)!;
 
-  // punti di tutte le squadre in questo round, per posizione e distacco
+  // Punti di tutte le squadre in questo round, per posizione e distacco.
+  // Il premio del simulatore entra qui dentro: fa parte del bottino del round, quindi può
+  // decidere chi lo ha vinto — e la posizione deve coincidere con quella di /standings/round.
   const allPoints = d.teams.map((t) => {
+    const s = d.simPoints.get(roundNo)?.get(t.id) ?? 0;
     const r = d.rosterAt(t.id, roundNo);
-    if (!r) return { teamId: t.id, name: t.name, points: 0 };
+    if (!r) return { teamId: t.id, name: t.name, points: s };
     const b = computeTeamRound(raw, r, d.rules, d.drsMap.get(t.id)?.get(round.id));
-    return { teamId: t.id, name: t.name, points: b.total };
+    return { teamId: t.id, name: t.name, points: b.total + s };
   });
   const sorted = [...allPoints].sort((a, b) => b.points - a.points);
   const position = sorted.findIndex((x) => x.teamId === teamId) + 1;
   const best = sorted[0]?.points ?? 0;
+
+  const sim = d.simPoints.get(roundNo)?.get(teamId) ?? 0;
 
   const roster = d.rosterAt(teamId, roundNo);
   if (!roster) {
@@ -204,11 +214,12 @@ export async function teamRoundReport(seasonId: string, teamId: string, roundNo:
       round: { round_no: round.round_no, code: round.code, name: round.name },
       team: { teamId: team.id, name: team.name },
       incomplete: true as const,
-      total: 0,
+      total: sim,
       position,
       best,
       rows: [],
       derived: null,
+      simulator: sim,
     };
   }
 
@@ -225,10 +236,12 @@ export async function teamRoundReport(seasonId: string, teamId: string, roundNo:
     round: { round_no: round.round_no, code: round.code, name: round.name },
     team: { teamId: team.id, name: team.name },
     incomplete: false as const,
-    total: ex.breakdown.total,
+    total: ex.breakdown.total + sim,
     position,
     best,
     rows,
+    /** Premio del simulatore su questo round (0 se spento o se non l'hai vinto). */
+    simulator: sim,
     derived: {
       pole: {
         points: ex.pole.points,
@@ -253,12 +266,17 @@ export async function teamSeasonMatrix(seasonId: string, teamId: string) {
 
   const rounds = d.scoredRounds.map((r) => ({ round_no: r.round_no, code: r.code }));
 
-  const keys = [...SLOTS, 'pole', 'teamManager', 'drsBonus'] as const;
+  const engineKeys = [...SLOTS, 'pole', 'teamManager', 'drsBonus'] as const;
+  // La riga «Simulatore» compare solo se il premio è acceso: con `simulatorPoints = 0`
+  // la tabella è identica a prima, senza una riga di zeri che non spiega niente.
+  const simOn = (d.rules.simulatorPoints ?? 0) > 0;
+  const keys = (simOn ? [...engineKeys, 'simulator'] : [...engineKeys]) as readonly string[];
   const labels: Record<string, string> = {
     ...SLOT_LABEL,
     pole: 'Pole',
     teamManager: 'Team Manager',
     drsBonus: 'DRS',
+    simulator: 'Simulatore',
   };
   const points: Record<string, number[]> = {};
   for (const k of keys) points[k] = [];
@@ -267,16 +285,19 @@ export async function teamSeasonMatrix(seasonId: string, teamId: string) {
   const columnTotals: number[] = [];
 
   for (const r of d.scoredRounds) {
+    const sim = d.simPoints.get(r.round_no)?.get(teamId) ?? 0;
     const roster = d.rosterAt(teamId, r.round_no);
     if (!roster) {
-      for (const k of keys) points[k].push(0);
-      columnTotals.push(0);
+      for (const k of engineKeys) points[k].push(0);
+      if (simOn) points.simulator.push(sim);
+      columnTotals.push(sim);
       continue;
     }
     const raw = d.rawByRound.get(r.id)!;
     const b = computeTeamRound(raw, roster, d.rules, d.drsMap.get(teamId)?.get(r.id));
-    for (const k of keys) points[k].push(b[k as keyof typeof b] as number);
-    columnTotals.push(b.total);
+    for (const k of engineKeys) points[k].push(b[k as keyof typeof b] as number);
+    if (simOn) points.simulator.push(sim);
+    columnTotals.push(b.total + sim);
 
     const comps = d.componentsAt(teamId, r.round_no);
     for (const s of SLOTS) {

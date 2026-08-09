@@ -23,6 +23,14 @@ export interface ScoringRules {
   drsScope: 'race' | 'race_sprint'; // ambito del raddoppio (default: solo Race)
   drsPerSeason: number;          // n. DRS disponibili (uno per componente)
 
+  /**
+   * Punti di campionato a chi fa il miglior tempo al simulatore su un circuito.
+   * Si assegnano quando il GP viene disputato (lì la classifica del simulatore si
+   * congela, perché il circuito si chiude). **Default 0 = il simulatore non tocca
+   * il campionato**: è un premio da accendere di proposito.
+   */
+  simulatorPoints: number;
+
   auction: AuctionRules;
 }
 
@@ -39,6 +47,8 @@ export const DEFAULT_RULES: ScoringRules = {
   drsMultiplier: 2,
   drsScope: 'race',
   drsPerSeason: 6,
+
+  simulatorPoints: 0,
 
   auction: {
     budget: 1835,

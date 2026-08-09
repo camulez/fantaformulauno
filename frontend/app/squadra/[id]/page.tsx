@@ -83,6 +83,9 @@ export default async function SquadraPage({ params }: { params: Promise<{ id: st
             <DerivedRow label="Pole" value={team!.breakdown.pole} />
             <DerivedRow label="Team Manager" value={team!.breakdown.teamManager} />
             {team!.breakdown.drsBonus > 0 && <DerivedRow label="DRS" value={team!.breakdown.drsBonus} />}
+            {team!.breakdown.simulator > 0 && (
+              <DerivedRow label="Simulatore" value={team!.breakdown.simulator} />
+            )}
           </ul>
         </Card>
 
