@@ -7,18 +7,41 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import * as THREE from "three";
+import { clientFetch } from "@/lib/api";
 import { buildGeometry, getTrack, worldAt, rightNormal } from "@/lib/sim/track";
-import { createCar, step, TICK, formatTime, isOffTrack, assistedBrake, CarState } from "@/lib/sim/physics";
+import {
+  createCar,
+  step,
+  TICK,
+  formatTime,
+  isOffTrack,
+  isBeyondLimits,
+  assistedBrake,
+  penaltyMs,
+  PENALTY_MS,
+  CarState,
+} from "@/lib/sim/physics";
+import type { SimLapResult } from "@/lib/types";
 
 type Phase = "ready" | "warmup" | "timed" | "done";
+type Mode = "timed" | "training";
 
 const SKY_TOP = 0x1d5c93;
 const SKY_BOT = 0xdceff4;
 const FOG_COLOR = 0xc2dae2;
 
-export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
+export default function SimGame({
+  roundNo = 8,
+  mode = "training",
+  attemptsLeft: attemptsLeftIn = 3,
+}: {
+  roundNo?: number;
+  mode?: Mode;
+  attemptsLeft?: number;
+}) {
   const def = useMemo(() => getTrack(roundNo), [roundNo]);
   const geom = useMemo(() => buildGeometry(def), [def]);
+  const isTraining = mode === "training";
 
   const mountRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef({ steer: 0, brake: false });
@@ -49,9 +72,27 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
   }, []);
 
   const [phase, setPhase] = useState<Phase>("ready");
-  const [hud, setHud] = useState({ speed: 0, time: 0, u: 0, fps: 0, off: false, assist: false });
-  const [result, setResult] = useState<number | null>(null);
+  const [hud, setHud] = useState({
+    speed: 0,
+    time: 0,
+    u: 0,
+    fps: 0,
+    off: false,
+    beyond: false,
+    penalty: 0,
+    violations: 0,
+    assist: false,
+  });
+  /** Esito del giro: cronometro puro, penalità e tempo finale. */
+  const [result, setResult] = useState<{ raw: number; penalty: number; violations: number } | null>(null);
   const [best, setBest] = useState<number | null>(null);
+
+  // Invio del tempo al server (solo in modalità cronometrata).
+  const [attemptsLeft, setAttemptsLeft] = useState(attemptsLeftIn);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
+  const [isRecord, setIsRecord] = useState(false);
 
   const setPhaseBoth = useCallback((p: Phase) => {
     phaseRef.current = p;
@@ -73,8 +114,51 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
     timeRef.current = 0;
     lapStartRef.current = car.s;
     setResult(null);
+    setSaveMsg(null);
+    setSaveErr(null);
+    setIsRecord(false);
     setPhaseBoth("warmup");
   }, [setPhaseBoth]);
+
+  /**
+   * Registra il giro. Il tentativo si consuma QUI, a giro completato: è il server a dire
+   * quanti ne restano, non il client.
+   */
+  const saveLap = useCallback(
+    async (raw: number, penalty: number, violations: number) => {
+      if (isTraining) return;
+      setSaving(true);
+      setSaveErr(null);
+      try {
+        const r = await clientFetch<SimLapResult>("/simulator/lap", {
+          method: "POST",
+          body: JSON.stringify({
+            roundNo,
+            rawMs: Math.round(raw),
+            penaltyMs: penalty,
+            violations,
+            brakeAssist: assistEnabledRef.current,
+          }),
+        });
+        setAttemptsLeft(r.attemptsLeft);
+        setBest(r.myBest);
+        setIsRecord(r.isRecord);
+        setSaveMsg(r.isRecord ? "Record del circuito" : "Tempo registrato");
+      } catch (e) {
+        setSaveErr(e instanceof Error ? e.message : "Non sono riuscito a registrare il tempo");
+      } finally {
+        setSaving(false);
+      }
+    },
+    [isTraining, roundNo]
+  );
+  // Il loop 3D non deve ricrearsi quando cambia `saveLap`: lo raggiunge tramite ref.
+  const saveLapRef = useRef(saveLap);
+  useEffect(() => {
+    saveLapRef.current = saveLap;
+  }, [saveLap]);
+  const isTrainingRef = useRef(isTraining);
+  isTrainingRef.current = isTraining;
 
   // ─────────────────────────── scena 3D ───────────────────────────
   useEffect(() => {
@@ -477,7 +561,13 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
           assistOn = assistEnabledRef.current && assistedBrake(car, geom);
           step(
             car,
-            { steer: inputRef.current.steer, brake: inputRef.current.brake || assistOn },
+            {
+              steer: inputRef.current.steer,
+              brake: inputRef.current.brake || assistOn,
+              // Le infrazioni si contano SOLO nel giro cronometrato di una sessione a tempo:
+              // il riscaldamento e l'allenamento sono liberi.
+              countLimits: ph === "timed" && !isTrainingRef.current,
+            },
             geom
           );
           acc -= TICK;
@@ -488,14 +578,22 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
             lapStartRef.current += geom.length;
             if (phaseRef.current === "warmup") {
               timeRef.current = 0;
+              car.violations = 0; // il riscaldamento non lascia strascichi
+              car.offFor = 0;
               phaseRef.current = "timed";
               setPhase("timed");
             } else {
-              const t = timeRef.current;
+              const raw = timeRef.current;
+              const pen = penaltyMs(car);
+              const finale = raw + pen;
               phaseRef.current = "done";
               setPhase("done");
-              setResult(t);
-              setBest((b) => (b === null || t < b ? t : b));
+              setResult({ raw, penalty: pen, violations: car.violations });
+              if (isTrainingRef.current) {
+                setBest((b) => (b === null || finale < b ? finale : b));
+              } else {
+                void saveLapRef.current(raw, pen, car.violations);
+              }
               inputRef.current.steer = 0;
               inputRef.current.brake = false;
               break;
@@ -537,6 +635,9 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
           u: ((car.s % geom.length) + geom.length) % geom.length / geom.length,
           fps,
           off: isOffTrack(car, geom),
+          beyond: isBeyondLimits(car, geom),
+          penalty: penaltyMs(car),
+          violations: car.violations,
           assist: assistOn,
         });
       }
@@ -640,7 +741,13 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
           <div className="flex items-end justify-between">
             <div>
               <p className={`${mono} text-[9px] uppercase tracking-widest text-bone-dim`}>
-                {phase === "warmup" ? "Giro di riscaldamento" : phase === "timed" ? "Giro cronometrato" : `R${def.roundNo} · ${def.name}`}
+                {phase === "warmup"
+                  ? "Giro di riscaldamento"
+                  : phase === "timed"
+                    ? isTraining
+                      ? "Allenamento libero"
+                      : "Giro cronometrato"
+                    : `R${def.roundNo} · ${def.name}`}
               </p>
               <p className={`${mono} text-2xl font-bold leading-tight text-bone`}>
                 {phase === "warmup" ? "--:--.---" : formatTime(hud.time)}
@@ -651,6 +758,24 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
               <p className={`${mono} text-2xl font-bold leading-tight text-acid`}>{Math.round(hud.speed * 3.6)}</p>
             </div>
           </div>
+
+          {/* Penalità dal vivo: si deve capire SUBITO che uscire costa, non a fine giro. */}
+          {!isTraining && phase === "timed" && (
+            <div className="mt-1.5 flex items-center justify-between border-t border-line/50 pt-1.5">
+              <span className={`${mono} text-[9px] uppercase tracking-widest text-bone-dim`}>
+                Limiti della pista
+              </span>
+              <span
+                className={`${mono} text-[11px] font-bold uppercase tracking-widest ${
+                  hud.violations > 0 ? "text-red" : "text-bone-dim"
+                }`}
+              >
+                {hud.violations > 0
+                  ? `${hud.violations} × +${PENALTY_MS / 1000} s = +${(hud.penalty / 1000).toFixed(0)} s`
+                  : "pulito"}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* mappa: vista dall'alto della stessa curva che si sta guidando */}
@@ -682,6 +807,17 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
           </svg>
         </div>
       </div>
+
+      {/* Avviso a tutto schermo mentre si è oltre i limiti: impossibile non accorgersene. */}
+      {hud.beyond && phase === "timed" && !isTraining && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div className="rounded-xl border border-red/60 bg-red/15 px-5 py-2 backdrop-blur-sm">
+            <p className={`${mono} text-sm font-bold uppercase tracking-[0.2em] text-red`}>
+              Fuori dai limiti
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* comandi */}
       {(phase === "warmup" || phase === "timed") && (
@@ -729,7 +865,9 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
           <Link href="/simulatore" className={`${mono} text-[10px] uppercase tracking-widest text-bone-dim hover:text-acid`}>
             ← Cambia circuito
           </Link>
-          <p className={`${mono} text-[10px] uppercase tracking-[0.3em] text-acid`}>R{def.roundNo} · Simulatore</p>
+          <p className={`${mono} text-[10px] uppercase tracking-[0.3em] text-acid`}>
+            {isTraining ? "Allenamento libero" : `R${def.roundNo} · Simulatore`}
+          </p>
           <h2 className="text-3xl font-semibold uppercase tracking-wide text-bone">{def.name}</h2>
           <p className={`${mono} text-[11px] leading-relaxed tracking-wider text-bone-dim`}>
             Un giro di riscaldamento per prendere le misure,
@@ -738,6 +876,20 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
             <br />
             Tieni premuto a sinistra o a destra per sterzare.
           </p>
+
+          {isTraining ? (
+            <p className={`${mono} text-[10px] leading-relaxed tracking-wider text-acid-deep`}>
+              Giri illimitati · niente penalità · niente classifica
+            </p>
+          ) : (
+            <div className="rounded-lg border border-red/40 bg-red/10 px-4 py-2">
+              <p className={`${mono} text-[10px] leading-relaxed tracking-wider text-red`}>
+                Ti restano <span className="font-bold">{attemptsLeft}</span>{" "}
+                {attemptsLeft === 1 ? "tentativo" : "tentativi"} · ogni uscita di pista costa{" "}
+                <span className="font-bold">{PENALTY_MS / 1000} s</span>
+              </p>
+            </div>
+          )}
 
           {/* scelta della frenata */}
           <div className="mt-1 w-full max-w-xs">
@@ -779,23 +931,74 @@ export default function SimGame({ roundNo = 8 }: { roundNo?: number }) {
       )}
 
       {phase === "done" && result !== null && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-carbon-950/80 px-8 text-center backdrop-blur-sm">
-          <p className={`${mono} text-[10px] uppercase tracking-[0.3em] text-acid`}>Giro completato</p>
-          <p className={`${mono} text-4xl font-bold text-bone`}>{formatTime(result)}</p>
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-carbon-950/85 px-8 text-center backdrop-blur-sm">
+          <p className={`${mono} text-[10px] uppercase tracking-[0.3em] text-acid`}>
+            {isRecord ? "Record del circuito" : "Giro completato"}
+          </p>
+
+          {/* Il conto in chiaro: cronometro, penalità, tempo che conta. */}
+          <p className={`${mono} text-4xl font-bold ${isRecord ? "digit-glow text-acid" : "text-bone"}`}>
+            {formatTime(result.raw + result.penalty)}
+          </p>
+          {result.penalty > 0 && (
+            <div className={`${mono} rounded-lg border border-red/40 bg-red/10 px-4 py-2 text-[11px] tracking-wider`}>
+              <span className="text-bone-dim">cronometro {formatTime(result.raw)}</span>
+              <br />
+              <span className="text-red">
+                {result.violations} {result.violations === 1 ? "infrazione" : "infrazioni"} ai limiti · +
+                {(result.penalty / 1000).toFixed(0)} s
+              </span>
+            </div>
+          )}
+
           <p className={`${mono} text-[10px] uppercase tracking-widest text-bone-dim`}>
             Frenata {assistEnabled ? "assistita" : "manuale"}
+            {result.penalty === 0 && <span className="text-acid"> · giro pulito</span>}
           </p>
+
           {best !== null && (
             <p className={`${mono} text-[11px] uppercase tracking-widest text-bone-dim`}>
               Tuo miglior tempo: <span className="text-acid">{formatTime(best)}</span>
             </p>
           )}
-          <button
-            onClick={start}
-            className={`${mono} mt-3 rounded-xl bg-acid px-8 py-3 text-sm font-bold uppercase tracking-widest text-carbon-950`}
-          >
-            Riprova
-          </button>
+
+          {!isTraining && (
+            <>
+              {saving && <p className={`${mono} text-[11px] text-bone-dim`}>Registro il tempo…</p>}
+              {saveMsg && <p className={`${mono} text-[11px] text-acid`}>{saveMsg}</p>}
+              {saveErr && <p className={`${mono} text-[11px] text-red`}>{saveErr}</p>}
+              <p className={`${mono} text-[10px] uppercase tracking-widest text-bone-dim`}>
+                {attemptsLeft > 0
+                  ? `Ti ${attemptsLeft === 1 ? "resta" : "restano"} ${attemptsLeft} ${attemptsLeft === 1 ? "tentativo" : "tentativi"}`
+                  : "Tentativi esauriti · vale il tuo miglior tempo"}
+              </p>
+            </>
+          )}
+
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+            {(isTraining || attemptsLeft > 0) && !saving && (
+              <button
+                onClick={start}
+                className={`${mono} rounded-xl bg-acid px-6 py-3 text-sm font-bold uppercase tracking-widest text-carbon-950`}
+              >
+                Riprova
+              </button>
+            )}
+            {!isTraining && (
+              <Link
+                href={`/simulatore/classifica/${def.roundNo}`}
+                className={`${mono} rounded-xl border border-acid/40 bg-acid/5 px-6 py-3 text-sm font-bold uppercase tracking-widest text-acid`}
+              >
+                Classifica
+              </Link>
+            )}
+            <Link
+              href="/simulatore"
+              className={`${mono} rounded-xl border border-line px-6 py-3 text-sm font-bold uppercase tracking-widest text-bone-dim`}
+            >
+              Circuiti
+            </Link>
+          </div>
         </div>
       )}
     </div>

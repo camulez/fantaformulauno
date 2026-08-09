@@ -227,7 +227,37 @@ export const TRACKS: TrackDef[] = [
   ]),
 ];
 
+/**
+ * PISTA PROVA — non fa parte del campionato (roundNo 0, mai in `TRACKS`).
+ * Serve a imparare, non a competere: qui non si contano infrazioni e non si salva niente.
+ * Disegnata per far esercitare su tutto quello che poi serve davvero, in ordine:
+ * un rettilineo lungo per prendere confidenza con la staccata, una curva lenta, una
+ * sequenza di esse, un curvone veloce da fare senza toccare il freno.
+ * Carreggiata larga 18 m — è una scuola guida, non un esame.
+ */
+export const TRAINING: TrackDef = mk(0, "TRN", "Pista prova", 18, "park", [
+  s(560), //            rettilineo lungo: velocità massima e staccata
+  t(80, 85), //         curva lenta a destra: la staccata vera
+  s(150),
+  t(60, -55), //        esse: sinistra…
+  s(55),
+  t(60, 55), //         …destra
+  s(190),
+  t(200, 90), //        curvone veloce a destra, da fare senza freno
+  s(140),
+  t(70, -45), //        piega a sinistra
+  s(120),
+  t(85, 75), //         destra media
+  s(150),
+  t(65, -40), //        sinistra
+  s(110),
+  t(90, 80), //         destra
+  s(180),
+  t(75, 55), //         destra d'ingresso al rettilineo
+]);
+
 export function getTrack(roundNo: number): TrackDef {
+  if (roundNo === TRAINING.roundNo) return TRAINING;
   return TRACKS.find((x) => x.roundNo === roundNo) ?? MONACO;
 }
 

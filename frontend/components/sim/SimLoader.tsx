@@ -7,13 +7,19 @@ const SimGame = dynamic(() => import("./SimGame"), {
   ssr: false,
   loading: () => (
     <div className="flex h-[calc(100dvh-4rem)] items-center justify-center bg-carbon-950">
-      <p className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.25em] text-bone-dim">
-        Carico il circuito…
-      </p>
+      <p className="note uppercase tracking-[0.25em]">Carico il circuito…</p>
     </div>
   ),
 });
 
-export function SimLoader({ roundNo }: { roundNo?: number }) {
-  return <SimGame roundNo={roundNo} />;
+export function SimLoader({
+  roundNo,
+  mode = "training",
+  attemptsLeft,
+}: {
+  roundNo?: number;
+  mode?: "timed" | "training";
+  attemptsLeft?: number;
+}) {
+  return <SimGame roundNo={roundNo} mode={mode} attemptsLeft={attemptsLeft} />;
 }

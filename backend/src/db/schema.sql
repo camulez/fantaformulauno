@@ -225,3 +225,22 @@ create table if not exists messages (
   created_at timestamptz not null default now()
 );
 create index if not exists idx_messages_created on messages(created_at desc);
+
+-- ============ Simulatore: tempi sul giro ============
+-- Si salva OGNI tentativo (max 3 per persona e circuito): la classifica prende il MIN,
+-- ma resta traccia dei progressi. La pista prova (round_no 0) non finisce mai qui:
+-- l'allenamento è libero e non si registra.
+create table if not exists sim_laps (
+  id uuid primary key default gen_random_uuid(),
+  season_id uuid not null references seasons(id) on delete cascade,
+  round_no int not null,
+  person_id uuid not null references people(id),
+  raw_ms int not null,                      -- cronometro puro
+  penalty_ms int not null default 0,        -- limiti della pista: 3 s per infrazione
+  time_ms int not null,                     -- raw + penalty: è QUESTO che fa classifica
+  violations int not null default 0,
+  brake_assist boolean not null default true,
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_sim_laps_class on sim_laps(season_id, round_no, time_ms);
+create index if not exists idx_sim_laps_person on sim_laps(season_id, round_no, person_id);

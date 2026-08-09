@@ -1,9 +1,10 @@
-// Collaudo dei 24 circuiti. Esegui: cd frontend && npx tsx lib/sim/tracks.check.ts
+// Collaudo dei circuiti: i 24 del campionato più la pista prova.
+// Esegui: cd frontend && npx tsx lib/sim/tracks.check.ts
 // Ogni tracciato deve essere GUIDABILE e SANO:
 //  · nessuna curva sotto i 30 m di raggio (altrimenti non si sta in pista);
 //  · non deve mai passare vicino a sé stesso (cordoli di traverso in mezzo alla carreggiata);
 //  · l'anello si chiude e la lunghezza è da circuito vero.
-import { TRACKS, buildGeometry, minRadius, minSelfDistance, STEP } from "./track";
+import { TRACKS, TRAINING, buildGeometry, minRadius, minSelfDistance, STEP } from "./track";
 import { cornerSpeedLimit } from "./physics";
 
 const R_MIN_OK = 30;
@@ -12,7 +13,11 @@ const CLEAR_MARGIN = 10;
 let fail = 0;
 const rows: string[] = [];
 
-for (const def of TRACKS) {
+// La pista prova passa dagli stessi vincoli dei circuiti veri: è quella su cui si impara,
+// deve essere la più sana di tutte.
+const ALL = [TRAINING, ...TRACKS];
+
+for (const def of ALL) {
   const g = buildGeometry(def);
   const rMin = minRadius(g);
   const clear = minSelfDistance(g);
@@ -46,7 +51,7 @@ for (const def of TRACKS) {
 
 console.log(rows.join("\n"));
 console.log(
-  `\nCircuiti: ${TRACKS.length} · ${TRACKS.length - fail} validi, ${fail} da sistemare` +
+  `\nCircuiti: ${ALL.length} (${TRACKS.length} campionato + pista prova) · ${ALL.length - fail} validi, ${fail} da sistemare` +
     `\n(vincoli: raggio > ${R_MIN_OK} m, distanza da sé stesso > larghezza+${CLEAR_MARGIN} m)`
 );
 process.exit(fail === 0 ? 0 : 1);

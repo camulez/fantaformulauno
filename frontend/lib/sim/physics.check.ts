@@ -1,6 +1,9 @@
 // Test dei moduli puri del simulatore. Esegui: cd frontend && npx tsx lib/sim/physics.check.ts
 import {
   MONACO,
+  TRACKS,
+  TRAINING,
+  getTrack,
   buildGeometry,
   curvatureAt,
   worldAt,
@@ -17,6 +20,8 @@ import {
   TICK,
   isOffTrack,
   formatTime,
+  finalTime,
+  penaltyMs,
   cornerSpeedLimit,
   steerForCurvature,
   assistedBrake,
@@ -274,6 +279,132 @@ const geom = buildGeometry(MONACO);
   check("il giro si chiude", car.s >= geom.length, `${car.s.toFixed(0)}/${geom.length.toFixed(0)} m`);
   check("tempo sul giro plausibile (30–180 s)", secs > 30 && secs < 180, `${secs.toFixed(1)} s`);
   console.log(`  · giro automatico: ${formatTime(secs * 1000)} su ${geom.length.toFixed(0)} m`);
+}
+
+// ── 6b. LIMITI DELLA PISTA: conteggio delle infrazioni ──
+{
+  // Una sola escursione lunga = UNA infrazione, non una per tick.
+  const car = createCar();
+  car.speed = 30;
+  car.lateral = geom.roadWidth / 2 + 3;
+  for (let i = 0; i < 60; i++) {
+    step(car, { steer: 0, brake: false, countLimits: true }, geom);
+    car.lateral = geom.roadWidth / 2 + 3; // lo tengo fuori di forza
+  }
+  check("un'escursione di 1 s conta 1 infrazione", car.violations === 1, `${car.violations}`);
+
+  // Sfiorare il bordo per meno della soglia non conta.
+  const brush = createCar();
+  brush.speed = 30;
+  brush.lateral = geom.roadWidth / 2 + 3;
+  for (let i = 0; i < 6; i++) {
+    step(brush, { steer: 0, brake: false, countLimits: true }, geom);
+    brush.lateral = geom.roadWidth / 2 + 3;
+  }
+  brush.lateral = 0;
+  step(brush, { steer: 0, brake: false, countLimits: true }, geom);
+  check("sfiorare il bordo per 0,1 s non conta", brush.violations === 0, `${brush.violations}`);
+
+  // Restare fuori a lungo costa di più: una in più ogni 2 s.
+  const lungo = createCar();
+  lungo.speed = 30;
+  lungo.lateral = geom.roadWidth / 2 + 3;
+  for (let i = 0; i < 60 * 6; i++) {
+    step(lungo, { steer: 0, brake: false, countLimits: true }, geom);
+    lungo.lateral = geom.roadWidth / 2 + 3;
+  }
+  check("6 s fuori pista costano 3 infrazioni", lungo.violations === 3, `${lungo.violations}`);
+
+  // Dentro il margine del cordolo non è infrazione.
+  const kerb = createCar();
+  kerb.speed = 30;
+  kerb.lateral = geom.roadWidth / 2 + 0.2;
+  for (let i = 0; i < 60; i++) {
+    step(kerb, { steer: 0, brake: false, countLimits: true }, geom);
+    kerb.lateral = geom.roadWidth / 2 + 0.2;
+  }
+  check("il cordolo (entro il margine) non è infrazione", kerb.violations === 0, `${kerb.violations}`);
+
+  // Senza countLimits (riscaldamento, allenamento) non si conta nulla.
+  const libero = createCar();
+  libero.speed = 30;
+  libero.lateral = geom.roadWidth / 2 + 3;
+  for (let i = 0; i < 60 * 3; i++) {
+    step(libero, { steer: 0, brake: false }, geom);
+    libero.lateral = geom.roadWidth / 2 + 3;
+  }
+  check("in allenamento le infrazioni non si contano", libero.violations === 0, `${libero.violations}`);
+}
+
+// ── 6c. IL TEST CHE INCARNA LA LAMENTELA: tagliare non deve convenire ──
+//
+// «andando fuori pista l'auto prosegue senza intoppi e alla fine il tempo sul giro è minore
+// tagliando le curve che rimanendo in pista. questo non può essere.»
+//
+// Due piloti automatici, stessa fisica: uno resta in pista, l'altro punta agli interni oltre
+// il bordo. Con le sole penalità della fisica il secondo vinceva; con i limiti della pista
+// deve perdere. Se un domani qualcuno ritocca l'attrito o la geometria e tagliare torna
+// conveniente, questo test diventa rosso.
+{
+  const drive = (cut: boolean) => {
+    const car = createCar();
+    let ticks = 0;
+    while (car.s < geom.length && ticks < 60 * 300) {
+      const kNow = curvatureAt(geom, car.s + 8);
+      let kAhead = 0;
+      const look = 40 + (car.speed * car.speed) / 55;
+      for (let d = 10; d < look; d += 10) {
+        const k = Math.abs(curvatureAt(geom, car.s + d));
+        if (k > kAhead) kAhead = k;
+      }
+      // chi taglia frena molto più tardi: tagliando la curva è davvero più aperta
+      const brake = car.speed > cornerSpeedLimit(kAhead * (cut ? 0.45 : 1)) * 1.05;
+      // chi taglia punta all'interno (per k>0 la curva va a destra → interno = destra)
+      const target = cut && Math.abs(kNow) > 0.002 ? Math.sign(kNow) * (geom.roadWidth / 2 + 5.5) : 0;
+      const steer = Math.max(
+        -1,
+        Math.min(1, steerForCurvature(kNow) - (car.lateral - target) * 0.012 - car.yaw * 1.6)
+      );
+      step(car, { steer, brake, countLimits: true }, geom);
+      ticks++;
+    }
+    return { raw: ticks * TICK * 1000, car };
+  };
+
+  const pulito = drive(false);
+  const sporco = drive(true);
+  const finalePulito = finalTime(pulito.raw, pulito.car);
+  const finaleSporco = finalTime(sporco.raw, sporco.car);
+  const vantaggioGrezzo = (pulito.raw - sporco.raw) / 1000;
+
+  check("il giro pulito si chiude", pulito.car.s >= geom.length);
+  check("il giro tagliando si chiude", sporco.car.s >= geom.length);
+  check(
+    "tagliando si guadagna tempo grezzo (è il motivo per cui serve una regola)",
+    vantaggioGrezzo > 0.5,
+    `${vantaggioGrezzo.toFixed(2)} s`
+  );
+  check("chi taglia prende infrazioni", sporco.car.violations > 0, `${sporco.car.violations}`);
+  check("chi resta in pista non prende infrazioni", pulito.car.violations === 0, `${pulito.car.violations}`);
+  check(
+    "TAGLIARE NON CONVIENE: col regolamento il giro sporco è più lento",
+    finaleSporco > finalePulito,
+    `sporco ${formatTime(finaleSporco)} vs pulito ${formatTime(finalePulito)}`
+  );
+  console.log(
+    `  · pulito ${formatTime(pulito.raw)} (0 infrazioni) · ` +
+      `tagliando ${formatTime(sporco.raw)} grezzo, ${sporco.car.violations} infrazioni → ${formatTime(finaleSporco)}` +
+      `\n  · il taglio guadagna ${vantaggioGrezzo.toFixed(2)} s grezzi, la penalità ne toglie ${(penaltyMs(sporco.car) / 1000).toFixed(0)}`
+  );
+}
+
+// ── 6d. La pista prova è guidabile come le altre ──
+{
+  const g = buildGeometry(TRAINING);
+  check("la pista prova non è nei 24 del campionato", !TRACKS.some((t) => t.roundNo === TRAINING.roundNo));
+  check("getTrack(0) restituisce la pista prova", getTrack(0).code === "TRN", getTrack(0).code);
+  check("la pista prova ha curve larghe (si impara)", minRadius(g) > 40, `R ${minRadius(g).toFixed(0)} m`);
+  check("la pista prova è più larga dei circuiti veri", g.roadWidth >= 16, `${g.roadWidth} m`);
 }
 
 // ── 7. Formattazione tempi ──

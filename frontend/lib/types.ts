@@ -301,3 +301,46 @@ export interface Message {
   createdAt: string;
   author: string;
 }
+
+// ── Simulatore ──
+export interface SimTrack {
+  roundNo: number;
+  code: string | null;
+  name: string | null;
+  status: string;
+  /** Il GP non è ancora stato disputato: si può girare. */
+  open: boolean;
+  attemptsUsed: number;
+  attemptsLeft: number;
+  myBest: number | null;
+  record: { timeMs: number; person: string } | null;
+}
+
+export interface SimTracksPayload {
+  tracks: SimTrack[];
+  maxAttempts: number;
+}
+
+export interface SimLapResult {
+  attemptsUsed: number;
+  attemptsLeft: number;
+  timeMs: number;
+  myBest: number;
+  isRecord: boolean;
+}
+
+export interface SimLeaderboardRow {
+  person: string;
+  timeMs: number;
+  rawMs: number;
+  penaltyMs: number;
+  violations: number;
+  brakeAssist: boolean;
+  attempts: number;
+}
+
+export interface SimLeaderboard {
+  round: { round_no: number; code: string | null; name: string | null; status: string } | null;
+  open: boolean;
+  rows: SimLeaderboardRow[];
+}

@@ -18,12 +18,21 @@ export interface CarState {
   yaw: number;
   /** Angolo di sterzo attuale (smorzato), da -1 a 1. */
   steer: number;
+  /** Secondi consecutivi passati fuori dai limiti della pista. */
+  offFor: number;
+  /** Infrazioni ai limiti della pista contate finora. */
+  violations: number;
 }
 
 export interface Input {
   /** -1 tutto a sinistra, +1 tutto a destra. */
   steer: number;
   brake: boolean;
+  /**
+   * Se le infrazioni vanno contate. Falso nel giro di riscaldamento e in allenamento:
+   * lì si può uscire quanto si vuole senza conseguenze.
+   */
+  countLimits?: boolean;
 }
 
 export const MAX_SPEED = 82; // m/s ≈ 295 km/h
@@ -38,6 +47,27 @@ const STEER_SMOOTH = 7.0; // quanto rapidamente lo sterzo raggiunge la posizione
 const OFF_DRAG = 14; // decelerazione fuori pista
 const OFF_GRIP = 0.42; // aderenza residua fuori pista
 const WALL_DRAG = 17; // decelerazione strisciando contro le barriere
+
+// ─────────────────────── LIMITI DELLA PISTA ───────────────────────
+// Tagliare una curva è DAVVERO più corto: non è un difetto del modello, è geometria
+// (a scostamento e con curvatura κ, un metro percorso all'interno vale 1/(1−κe) metri di
+// linea centrale). Nelle corse vere il problema si risolve con una REGOLA, non con più
+// attrito — e infatti l'attrito fuori pista, da solo, non bastava.
+//
+// MISURA che ha deciso il valore della penalità (pilota automatico, 24 circuiti, stessa
+// fisica): un pilota che taglia gli interni chiude il giro con 2,7–8,9 s di vantaggio,
+// pari a un massimo di **2,05 s per singola uscita**. La penalità è fissata a 3 s: circa
+// una volta e mezza il vantaggio massimo, così tagliare è sempre in perdita.
+// Il test «tagliare non conviene» in physics.check.ts sorveglia questa proprietà.
+
+/** Penalità, in millisecondi, per ogni infrazione ai limiti della pista. */
+export const PENALTY_MS = 3000;
+/** Margine oltre il bordo prima di essere considerati fuori: sfiorare il cordolo non è infrazione. */
+const LIMIT_MARGIN = 0.5;
+/** Quanto bisogna restare fuori perché scatti l'infrazione (secondi). */
+const MIN_OFF = 0.2;
+/** Ogni quanti secondi di permanenza fuori pista scatta un'altra infrazione. */
+const OFF_REPEAT = 2.0;
 
 /** Velocità massima con cui si può percorrere una curva di curvatura k senza allargare. */
 export function cornerSpeedLimit(k: number): number {
@@ -72,11 +102,26 @@ export function assistedBrake(car: CarState, geom: TrackGeom): boolean {
 }
 
 export function createCar(): CarState {
-  return { s: 0, lateral: 0, speed: 0, yaw: 0, steer: 0 };
+  return { s: 0, lateral: 0, speed: 0, yaw: 0, steer: 0, offFor: 0, violations: 0 };
 }
 
 export function isOffTrack(car: CarState, geom: TrackGeom): boolean {
   return Math.abs(car.lateral) > geom.roadWidth / 2;
+}
+
+/** Fuori dai limiti: come `isOffTrack` ma con il margine di tolleranza del cordolo. */
+export function isBeyondLimits(car: CarState, geom: TrackGeom): boolean {
+  return Math.abs(car.lateral) > geom.roadWidth / 2 + LIMIT_MARGIN;
+}
+
+/** Penalità accumulata, in millisecondi. */
+export function penaltyMs(car: CarState): number {
+  return car.violations * PENALTY_MS;
+}
+
+/** Tempo finale di un giro: cronometro puro più le penalità. */
+export function finalTime(rawMs: number, car: CarState): number {
+  return rawMs + penaltyMs(car);
 }
 
 /** Avanza la simulazione di UN tick. Muta e restituisce lo stato. */
@@ -128,6 +173,24 @@ export function step(car: CarState, input: Input, geom: TrackGeom): CarState {
     // restare incollati al muro fino a fermarsi
     car.yaw = -side * 0.03;
     car.speed = Math.max(0, car.speed - WALL_DRAG * dt);
+  }
+
+  // ── limiti della pista ──
+  // Una infrazione per uscita (dopo MIN_OFF, così un rimbalzo sul cordolo non conta), poi
+  // un'altra ogni OFF_REPEAT secondi di permanenza: chi fa mezzo giro sul prato non se la
+  // cava con una penalità sola.
+  if (isBeyondLimits(car, geom)) {
+    const before = car.offFor;
+    car.offFor += dt;
+    if (before < MIN_OFF && car.offFor >= MIN_OFF) {
+      if (input.countLimits) car.violations++;
+    } else if (car.offFor >= MIN_OFF) {
+      const n = Math.floor((car.offFor - MIN_OFF) / OFF_REPEAT);
+      const nBefore = Math.floor((before - MIN_OFF) / OFF_REPEAT);
+      if (n > nBefore && input.countLimits) car.violations++;
+    }
+  } else {
+    car.offFor = 0;
   }
 
   return car;
