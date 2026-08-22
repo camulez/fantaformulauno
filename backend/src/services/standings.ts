@@ -13,7 +13,12 @@ export interface TeamStanding {
   cumulative: number[];
   breakdown: {
     telaio: number; motore: number; pilota1: number; pilota2: number;
-    sponsor: number; benzina: number; pole: number; teamManager: number; drsBonus: number;
+    sponsor: number; benzina: number; pole: number; teamManager: number;
+    /**
+     * Punti arrivati dal raddoppio del DRS. ⚠️ INFORMATIVO: sono GIÀ dentro i sei slot
+     * qui sopra, perché il DRS è un moltiplicatore. Sommarlo al totale conterebbe due volte.
+     */
+    drsExtra: number;
     /** Premio al miglior tempo sul simulatore. Vale 0 se `simulatorPoints` è spento. */
     simulator: number;
   };
@@ -142,7 +147,7 @@ export async function computeStandings(seasonId: string): Promise<StandingsResul
   const standings: TeamStanding[] = teams.map((t) => {
     const perRound: number[] = [];
     const cumulative: number[] = [];
-    const acc = { telaio: 0, motore: 0, pilota1: 0, pilota2: 0, sponsor: 0, benzina: 0, pole: 0, teamManager: 0, drsBonus: 0, simulator: 0 };
+    const acc = { telaio: 0, motore: 0, pilota1: 0, pilota2: 0, sponsor: 0, benzina: 0, pole: 0, teamManager: 0, drsExtra: 0, simulator: 0 };
     let run = 0;
     for (const r of scoredRounds) {
       const sim = simPoints.get(r.round_no)?.get(t.id) ?? 0;
@@ -163,7 +168,7 @@ export async function computeStandings(seasonId: string): Promise<StandingsResul
       run += b.total + sim;
       cumulative.push(run);
       acc.telaio += b.telaio; acc.motore += b.motore; acc.pilota1 += b.pilota1; acc.pilota2 += b.pilota2;
-      acc.sponsor += b.sponsor; acc.benzina += b.benzina; acc.pole += b.pole; acc.teamManager += b.teamManager; acc.drsBonus += b.drsBonus;
+      acc.sponsor += b.sponsor; acc.benzina += b.benzina; acc.pole += b.pole; acc.teamManager += b.teamManager; acc.drsExtra += b.drs?.aggiunta ?? 0;
       acc.simulator += sim;
     }
     return { teamId: t.id, name: t.name, total: run, perRound, cumulative, breakdown: acc, gpWins: 0, seconds: 0, thirds: 0 };

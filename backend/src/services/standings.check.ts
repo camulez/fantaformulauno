@@ -23,7 +23,7 @@ async function main() {
     const b = t.breakdown;
     console.log(
       `${mark} ${t.name.padEnd(30)} ${String(t.total).padStart(4)}${exp !== undefined ? ` (atteso ${exp})` : ''}  ` +
-        `[T${b.telaio} M${b.motore} P1:${b.pilota1} P2:${b.pilota2} S${b.sponsor} B${b.benzina} Pole${b.pole} TM${b.teamManager} DRS${b.drsBonus}]`
+        `[T${b.telaio} M${b.motore} P1:${b.pilota1} P2:${b.pilota2} S${b.sponsor} B${b.benzina} Pole${b.pole} TM${b.teamManager} DRS${b.drsExtra}]`
     );
   }
   console.log(`\n${fail === 0 ? '✅ Classifiche DB coerenti col gate' : `❌ ${fail} scostamenti`}`);

@@ -10,6 +10,18 @@ import type { Me, ReportRow, RoundReport } from "@/lib/types";
  * l'accensione a cascata sulle voci.
  */
 
+/** La coda della spiegazione quando su quel pezzo è stato giocato il DRS. */
+function CodaDrs({ row }: { row: ReportRow }) {
+  if (!row.drs) return null;
+  return (
+    <span className="text-acid">
+      {" "}· DRS ×{row.drs.multiplier} su <span className="num">{row.drs.moltiplicata}</span> di gara
+      {" = +"}
+      <span className="num">{row.drs.aggiunta}</span>
+    </span>
+  );
+}
+
 /** Spiegazione di come nascono i punti di un pezzo. */
 function Spiegazione({ row }: { row: ReportRow }) {
   const cls = "note mt-1 block";
@@ -31,6 +43,7 @@ function Spiegazione({ row }: { row: ReportRow }) {
               </span>
             );
           })}
+          <CodaDrs row={row} />
         </span>
       );
     case "pilota1":
@@ -44,6 +57,7 @@ function Spiegazione({ row }: { row: ReportRow }) {
               <span className="num">{row.sprint}</span>
             </>
           )}
+          <CodaDrs row={row} />
         </span>
       );
     default:
@@ -51,6 +65,7 @@ function Spiegazione({ row }: { row: ReportRow }) {
         <span className={cls}>
           {row.scuderia} · <span className="num">{row.carsScored}</span> a punti ×{" "}
           <span className="num">{row.perCar}</span>
+          <CodaDrs row={row} />
         </span>
       );
   }
@@ -83,8 +98,10 @@ export default async function ReportRoundPage({
   );
 
   const derived = rep.derived;
+  // ⚠️ Il DRS NON entra qui: è un moltiplicatore, i suoi punti sono già dentro il pezzo
+  // su cui è stato giocato. Metterlo fra i bonus è esattamente l'equivoco da evitare.
   const bonusTot =
-    (derived ? derived.pole.points + derived.teamManager.points + derived.drs.bonus : 0) + rep.simulator;
+    (derived ? derived.pole.points + derived.teamManager.points : 0) + rep.simulator;
 
   return (
     <Screen>
@@ -168,14 +185,21 @@ export default async function ReportRoundPage({
                       <DataRow key={row.slot}>
                         <div className="flex items-baseline justify-between gap-3">
                           <div className="min-w-0">
-                            <Label>{row.label}</Label>
+                            <div className="flex items-center gap-1.5">
+                              <Label>{row.label}</Label>
+                              {row.drs && (
+                                <span className="label rounded border border-acid/50 bg-acid/10 px-1.5 text-acid">
+                                  DRS ×{row.drs.multiplier}
+                                </span>
+                              )}
+                            </div>
                             <p className="truncate font-semibold text-bone" style={{ fontSize: "var(--text-base)" }}>
                               {row.componentName}
                             </p>
                           </div>
                           <span
                             className={`num shrink-0 font-bold leading-none ${
-                              top ? "text-acid" : row.points > 0 ? "text-bone" : "text-bone-dim/50"
+                              row.drs ? "digit-glow text-acid" : top ? "text-acid" : row.points > 0 ? "text-bone" : "text-bone-dim/50"
                             }`}
                             style={{ fontSize: "var(--text-xl)" }}
                           >
@@ -220,18 +244,6 @@ export default async function ReportRoundPage({
                             : derived.teamManager.p1Scored || derived.teamManager.p2Scored
                               ? "solo uno dei tuoi piloti a punti"
                               : "nessuno dei tuoi piloti a punti",
-                      },
-                      {
-                        k: "drs",
-                        nome: "DRS",
-                        pt: derived.drs.bonus,
-                        det: derived.drs.slot
-                          ? `sul ${derived.drs.slotLabel}${
-                              derived.drs.componentName ? ` (${derived.drs.componentName})` : ""
-                            } · ×${derived.drs.multiplier} sui punti ${
-                              derived.drs.scope === "race" ? "Gara" : "Gara e Sprint"
-                            }`
-                          : "non giocato in questa gara",
                       },
                       // Compare solo se il premio è acceso: a 0 sarebbe una riga che non
                       // spiega niente in ogni scheda di ogni round.

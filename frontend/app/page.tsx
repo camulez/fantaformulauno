@@ -3,9 +3,10 @@ import { serverFetch } from "@/lib/api.server";
 import { BottomNav } from "@/components/BottomNav";
 import { LogoutButton } from "@/components/LogoutButton";
 import { Screen, Main, Card, Label, Btn } from "@/components/ui";
-import type { Me, SeasonInfo, StandingsResult } from "@/lib/types";
+import type { DrsBoard, Me, SeasonInfo, StandingsResult } from "@/lib/types";
 
 const LINKS = [
+  { href: "/drs", label: "DRS" },
   { href: "/report", label: "Report" },
   { href: "/bacheca", label: "Bacheca" },
   { href: "/impostazioni", label: "Regole" },
@@ -21,6 +22,16 @@ export default async function HomePage() {
     serverFetch<StandingsResult>("/standings/current").catch(() => null),
     serverFetch<{ teamId: string; name: string }>("/report/my-team").catch(() => null),
   ]);
+
+  // Stato dei DRS: quante carte restano e se hai già deciso per la prossima gara.
+  const board = await serverFetch<DrsBoard>("/drs/season").catch(() => null);
+  const drs = board?.teams.find((t) => t.isMine) ?? null;
+  const drsMax = board?.maxPerSeason ?? 6;
+  const drsProssimo = drs?.onNext
+    ? ` · giocato sul ${drs.onNext} alla prossima`
+    : board?.prossimoRound
+      ? " · nessuno sulla prossima gara"
+      : "";
 
   const teams = standings?.teams ?? [];
   const myIndex = myTeam ? teams.findIndex((t) => t.teamId === myTeam.teamId) : -1;
@@ -121,6 +132,33 @@ export default async function HomePage() {
               ))}
             </div>
           </section>
+        )}
+
+        {/* ── DRS: quante carte ti restano ── */}
+        {drs && (
+          <Link href="/drs" className="block">
+            <Card accent className="px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <Label className="text-acid">DRS</Label>
+                  <p className="note mt-0.5">
+                    {drs.left > 0
+                      ? `Ti ${drs.left === 1 ? "resta" : "restano"} ${drs.left} ${drs.left === 1 ? "carta" : "carte"} su ${drsMax}`
+                      : "Hai usato tutte le carte"}
+                    {drsProssimo}
+                  </p>
+                </div>
+                <div className="flex shrink-0 gap-1">
+                  {Array.from({ length: drsMax }).map((_, i) => (
+                    <span
+                      key={i}
+                      className={`h-2 w-2 rounded-full ${i < drsMax - drs.left ? "bg-acid" : "bg-line"}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </Card>
+          </Link>
         )}
 
         {/* ── azioni ── */}

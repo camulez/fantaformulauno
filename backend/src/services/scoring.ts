@@ -37,7 +37,26 @@ export interface TeamRoster {
   benzinaTeamId: string;     // scuderia della benzina
 }
 
+/**
+ * Il DRS applicato in un round. ⚠️ NON è un punteggio in più: è un MOLTIPLICATORE.
+ * I punti che aggiunge sono GIÀ dentro il valore dello slot su cui è giocato — sommarli
+ * di nuovo al totale li conterebbe due volte. Questo oggetto serve solo a raccontare
+ * quanto del valore di quel componente viene dal raddoppio.
+ */
+export interface DrsApplied {
+  slot: RosterSlot;
+  /** Punti dello slot PRIMA del raddoppio. */
+  base: number;
+  /** La quota di quei punti che il moltiplicatore ha toccato (di norma i soli punti Gara). */
+  moltiplicata: number;
+  /** Punti aggiunti dal raddoppio. Già compresi nel valore dello slot. */
+  aggiunta: number;
+  multiplier: number;
+  scope: ScoringRules['drsScope'];
+}
+
 export interface TeamRoundBreakdown {
+  // ⚠️ I sei slot INCLUDONO già l'effetto del DRS, quando giocato.
   telaio: number;
   motore: number;
   pilota1: number;
@@ -46,7 +65,8 @@ export interface TeamRoundBreakdown {
   benzina: number;
   pole: number;
   teamManager: number;
-  drsBonus: number;
+  /** Descrizione del DRS giocato, informativa. Vedi `DrsApplied`: non è un addendo. */
+  drs: DrsApplied | null;
   total: number;
 }
 
@@ -102,37 +122,41 @@ export function computeTeamRound(
       ? rules.teamManagerPoints
       : 0;
 
-  // DRS: raddoppia i punti (di default solo Race) del componente su cui è giocato.
-  let drsBonus = 0;
+  // ── DRS: MOLTIPLICA i punti (di default solo quelli di Gara) del componente scelto ──
+  // L'effetto viene sommato DENTRO lo slot, non messo a parte: è un moltiplicatore, e va
+  // letto così anche dai numeri. `drs` racconta soltanto quanto di quel valore è raddoppio.
+  const base = { telaio, motore, pilota1, pilota2, sponsor, benzina };
+  let drs: DrsApplied | null = null;
+
   if (drsSlot && rules.drsMultiplier > 1) {
     const extra = rules.drsMultiplier - 1;
     const full = rules.drsScope === 'race_sprint';
-    switch (drsSlot) {
-      case 'telaio':
-        drsBonus = (full ? ctorAll(roster.telaioTeamId) : ctorRace(roster.telaioTeamId)) * extra;
-        break;
-      case 'motore':
-        drsBonus = (full ? ctorAll(roster.motoreWorksTeamId) : ctorRace(roster.motoreWorksTeamId)) * extra;
-        break;
-      case 'pilota1':
-        drsBonus = (full ? driverAll(roster.p1DriverId) : driverRace(roster.p1DriverId)) * extra;
-        break;
-      case 'pilota2':
-        drsBonus = (full ? driverAll(roster.p2DriverId) : driverRace(roster.p2DriverId)) * extra;
-        break;
-      case 'sponsor':
-        drsBonus = sponsor * extra; // sponsor è tutto "Race"
-        break;
-      case 'benzina':
-        drsBonus = benzina * extra;
-        break;
-    }
+    // Quota di punti dello slot che il moltiplicatore tocca.
+    const moltiplicata =
+      drsSlot === 'telaio' ? (full ? ctorAll(roster.telaioTeamId) : ctorRace(roster.telaioTeamId))
+      : drsSlot === 'motore' ? (full ? ctorAll(roster.motoreWorksTeamId) : ctorRace(roster.motoreWorksTeamId))
+      : drsSlot === 'pilota1' ? (full ? driverAll(roster.p1DriverId) : driverRace(roster.p1DriverId))
+      : drsSlot === 'pilota2' ? (full ? driverAll(roster.p2DriverId) : driverRace(roster.p2DriverId))
+      : drsSlot === 'sponsor' ? sponsor // sponsor e benzina sono tutti punti "Gara"
+      : benzina;
+
+    const aggiunta = moltiplicata * extra;
+    drs = {
+      slot: drsSlot,
+      base: base[drsSlot],
+      moltiplicata,
+      aggiunta,
+      multiplier: rules.drsMultiplier,
+      scope: rules.drsScope,
+    };
+    base[drsSlot] += aggiunta;
   }
 
   const total =
-    telaio + motore + pilota1 + pilota2 + sponsor + benzina + pole + teamManager + drsBonus;
+    base.telaio + base.motore + base.pilota1 + base.pilota2 + base.sponsor + base.benzina +
+    pole + teamManager;
 
-  return { telaio, motore, pilota1, pilota2, sponsor, benzina, pole, teamManager, drsBonus, total };
+  return { ...base, pole, teamManager, drs, total };
 }
 
 export interface SeasonRoundInput {
@@ -169,17 +193,30 @@ export interface CtorDriverLine {
   counted: number; // quanto ha davvero contribuito al costruttore
 }
 
+/**
+ * Il raddoppio visto dallo slot. `points` dello slot lo comprende già: serve per poter
+ * dire «43 di gara raddoppiati» invece di far comparire un numero dal nulla.
+ */
+export interface SlotDrs {
+  moltiplicata: number;
+  aggiunta: number;
+  multiplier: number;
+}
+
+type SlotBase = { points: number; drs: SlotDrs | null };
+
 export type SlotExplain =
-  | { slot: 'telaio' | 'motore'; points: number; fiaTeamId: string; drivers: CtorDriverLine[] }
-  | { slot: 'pilota1' | 'pilota2'; points: number; driverId: string; race: number; sprint: number }
-  | { slot: 'sponsor' | 'benzina'; points: number; fiaTeamId: string; carsScored: number; perCar: number };
+  | (SlotBase & { slot: 'telaio' | 'motore'; fiaTeamId: string; drivers: CtorDriverLine[] })
+  | (SlotBase & { slot: 'pilota1' | 'pilota2'; driverId: string; race: number; sprint: number })
+  | (SlotBase & { slot: 'sponsor' | 'benzina'; fiaTeamId: string; carsScored: number; perCar: number });
 
 export interface RoundExplain {
   breakdown: TeamRoundBreakdown;
   slots: SlotExplain[];
   pole: { poleDriverId: string | null; owned: boolean; points: number };
   teamManager: { p1Scored: boolean; p2Scored: boolean; points: number };
-  drs: { slot: RosterSlot | null; bonus: number; scope: ScoringRules['drsScope']; multiplier: number };
+  /** Il DRS giocato, se c'è. I suoi punti sono già dentro lo slot: vedi `DrsApplied`. */
+  drs: DrsApplied | null;
 }
 
 export function explainTeamRound(
@@ -206,11 +243,22 @@ export function explainTeamRound(
   const carsScored = (fiaTeamId: string): number =>
     (raw.lineup[fiaTeamId] ?? []).filter(carScored).length;
 
+  // Il raddoppio riguarda un solo slot: qui lo si attacca a quello giusto.
+  const drsDi = (slot: RosterSlot): SlotDrs | null =>
+    breakdown.drs && breakdown.drs.slot === slot
+      ? {
+          moltiplicata: breakdown.drs.moltiplicata,
+          aggiunta: breakdown.drs.aggiunta,
+          multiplier: breakdown.drs.multiplier,
+        }
+      : null;
+
   const slots: SlotExplain[] = [
-    { slot: 'telaio', points: breakdown.telaio, fiaTeamId: roster.telaioTeamId, drivers: ctorLines(roster.telaioTeamId) },
-    { slot: 'motore', points: breakdown.motore, fiaTeamId: roster.motoreWorksTeamId, drivers: ctorLines(roster.motoreWorksTeamId) },
+    { slot: 'telaio', points: breakdown.telaio, drs: drsDi('telaio'), fiaTeamId: roster.telaioTeamId, drivers: ctorLines(roster.telaioTeamId) },
+    { slot: 'motore', points: breakdown.motore, drs: drsDi('motore'), fiaTeamId: roster.motoreWorksTeamId, drivers: ctorLines(roster.motoreWorksTeamId) },
     {
       slot: 'pilota1',
+      drs: drsDi('pilota1'),
       points: breakdown.pilota1,
       driverId: roster.p1DriverId,
       race: raw.race[roster.p1DriverId]?.points ?? 0,
@@ -218,6 +266,7 @@ export function explainTeamRound(
     },
     {
       slot: 'pilota2',
+      drs: drsDi('pilota2'),
       points: breakdown.pilota2,
       driverId: roster.p2DriverId,
       race: raw.race[roster.p2DriverId]?.points ?? 0,
@@ -225,6 +274,7 @@ export function explainTeamRound(
     },
     {
       slot: 'sponsor',
+      drs: drsDi('sponsor'),
       points: breakdown.sponsor,
       fiaTeamId: roster.sponsorTeamId,
       carsScored: carsScored(roster.sponsorTeamId),
@@ -232,6 +282,7 @@ export function explainTeamRound(
     },
     {
       slot: 'benzina',
+      drs: drsDi('benzina'),
       points: breakdown.benzina,
       fiaTeamId: roster.benzinaTeamId,
       carsScored: carsScored(roster.benzinaTeamId),
@@ -252,11 +303,6 @@ export function explainTeamRound(
       p2Scored: carScored(roster.p2DriverId),
       points: breakdown.teamManager,
     },
-    drs: {
-      slot: drsSlot ?? null,
-      bonus: breakdown.drsBonus,
-      scope: rules.drsScope,
-      multiplier: rules.drsMultiplier,
-    },
+    drs: breakdown.drs,
   };
 }

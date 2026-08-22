@@ -88,7 +88,9 @@ function breakdown(f: Fantasy, rules: ScoringRules) {
     total,
     parts: {
       telaio: sum('telaio'), motore: sum('motore'), pilota1: sum('pilota1'), pilota2: sum('pilota2'),
-      sponsor: sum('sponsor'), benzina: sum('benzina'), pole: sum('pole'), teamManager: sum('teamManager'), drsBonus: sum('drsBonus'),
+      sponsor: sum('sponsor'), benzina: sum('benzina'), pole: sum('pole'), teamManager: sum('teamManager'),
+      // Informativo: quanti punti sono arrivati dal raddoppio. NON è un addendo del totale.
+      drsExtra: perRound.reduce((s, b) => s + (b.drs?.aggiunta ?? 0), 0),
     },
   };
 }
@@ -97,7 +99,7 @@ function check(f: Fantasy, rules = DEFAULT_RULES) {
   const ok = b.total === f.expected;
   if (!ok) fail++;
   console.log(`${ok ? '✅' : '❌'} ${f.name.padEnd(9)} totale=${b.total} (atteso ${f.expected})`);
-  console.log(`     T${b.parts.telaio} M${b.parts.motore} P1:${b.parts.pilota1} P2:${b.parts.pilota2} S${b.parts.sponsor} B${b.parts.benzina} Pole${b.parts.pole} TM${b.parts.teamManager} DRS${b.parts.drsBonus}`);
+  console.log(`     T${b.parts.telaio} M${b.parts.motore} P1:${b.parts.pilota1} P2:${b.parts.pilota2} S${b.parts.sponsor} B${b.parts.benzina} Pole${b.parts.pole} TM${b.parts.teamManager} (di cui DRS +${b.parts.drsExtra})`);
 }
 
 console.log('=== GATE R11 (roster pieno) ===');

@@ -13,6 +13,17 @@ function eq(name: string, got: number, want: number) {
     console.error(`  ✗ ${name}: ottenuto ${got}, atteso ${want}`);
   }
 }
+/** Per le asserzioni che non sono numeriche (es. «il DRS non è stato giocato»). */
+function ok(name: string, cond: boolean) {
+  if (cond) {
+    pass++;
+    console.log(`  ✓ ${name}`);
+  } else {
+    fail++;
+    console.error(`  ✗ ${name}`);
+  }
+}
+
 function section(t: string) {
   console.log(`\n▶ ${t}`);
 }
@@ -49,7 +60,7 @@ section('Componenti base (telaio=somma piloti, sponsor=3/auto, benzina=6/auto, p
   eq('benzina (B: 1 auto a punti x6)', b.benzina, 6);
   eq('pole (a1 posseduto come P1)', b.pole, 3);
   eq('team manager (P1=a1 e P2=b1 entrambi a punti)', b.teamManager, 3);
-  eq('drsBonus (nessun DRS)', b.drsBonus, 0);
+  ok('nessun DRS giocato', b.drs === null);
   eq('TOTALE', b.total, 43 + 43 + 33 + 18 + 6 + 6 + 3 + 3);
 }
 
@@ -65,14 +76,36 @@ section('Team Manager = 0 se uno dei due piloti posseduti NON va a punti Race');
   eq('team manager (P2=b1 non a punti)', computeTeamRound(raw, roster, R).teamManager, 0);
 }
 
-section('DRS raddoppia SOLO i punti Race (sprint escluso)');
+section('DRS = MOLTIPLICATORE dello slot, non punti in più');
 {
-  const onP1 = computeTeamRound(base, roster, R, 'pilota1'); // a1 race 25 (+sprint 8 NON raddoppiato)
-  eq('drsBonus su pilota1 (=race 25)', onP1.drsBonus, 25);
-  const onMot = computeTeamRound(base, roster, R, 'motore'); // ctorRace A = 25+10 = 35
-  eq('drsBonus su motore (=race costruttore 35)', onMot.drsBonus, 35);
-  const onSpo = computeTeamRound(base, roster, R, 'sponsor'); // sponsor 6
-  eq('drsBonus su sponsor (=6)', onSpo.drsBonus, 6);
+  // Il punto della sezione: dopo il DRS il valore DELLO SLOT cambia. Se un giorno
+  // qualcuno rimette il raddoppio in una voce separata, questi test diventano rossi.
+  const senza = computeTeamRound(base, roster, R);
+
+  // pilota1: 33 in tutto (25 gara + 8 sprint); il DRS raddoppia solo i 25 di gara.
+  const onP1 = computeTeamRound(base, roster, R, 'pilota1');
+  eq('pilota1 vale il doppio dei suoi punti GARA', onP1.pilota1, 33 + 25);
+  eq('  base prima del raddoppio', onP1.drs!.base, 33);
+  eq('  quota moltiplicata (solo gara)', onP1.drs!.moltiplicata, 25);
+  eq('  punti aggiunti dal raddoppio', onP1.drs!.aggiunta, 25);
+  eq('  lo sprint NON viene raddoppiato', onP1.pilota1 - senza.pilota1, 25);
+  eq('gli altri slot non si muovono', onP1.motore, senza.motore);
+  eq('il totale cresce del raddoppio', onP1.total, senza.total + 25);
+
+  // motore: costruttore A in gara = 25+10 = 35
+  const onMot = computeTeamRound(base, roster, R, 'motore');
+  eq('motore raddoppiato sui punti gara del costruttore', onMot.motore, 43 + 35);
+  eq('  aggiunta', onMot.drs!.aggiunta, 35);
+
+  // sponsor: tutti punti "gara", quindi raddoppia per intero
+  const onSpo = computeTeamRound(base, roster, R, 'sponsor');
+  eq('sponsor raddoppiato per intero', onSpo.sponsor, 6 * 2);
+  eq('  aggiunta', onSpo.drs!.aggiunta, 6);
+
+  // ⚠️ L'invariante che protegge dal doppio conteggio.
+  const somma = onMot.telaio + onMot.motore + onMot.pilota1 + onMot.pilota2 +
+                onMot.sponsor + onMot.benzina + onMot.pole + onMot.teamManager;
+  eq('il totale è la somma degli slot: il DRS non si somma a parte', onMot.total, somma);
 }
 
 section('Detrazione TOTALE Race: esclude l\'auto da costruttore E da sponsor/benzina');

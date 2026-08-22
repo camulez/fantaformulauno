@@ -152,6 +152,7 @@ function nameSlot(
       return {
         slot: s.slot,
         points: s.points,
+        drs: s.drs,
         scuderia: fiaName.get(s.fiaTeamId) ?? '—',
         drivers: s.drivers.map((d) => ({
           name: driverName.get(d.driverId) ?? '—',
@@ -167,6 +168,7 @@ function nameSlot(
       return {
         slot: s.slot,
         points: s.points,
+        drs: s.drs,
         pilota: driverName.get(s.driverId) ?? '—',
         race: s.race,
         sprint: s.sprint,
@@ -175,6 +177,7 @@ function nameSlot(
       return {
         slot: s.slot,
         points: s.points,
+        drs: s.drs,
         scuderia: fiaName.get(s.fiaTeamId) ?? '—',
         carsScored: s.carsScored,
         perCar: s.perCar,
@@ -249,11 +252,15 @@ export async function teamRoundReport(seasonId: string, teamId: string, roundNo:
         owned: ex.pole.owned,
       },
       teamManager: ex.teamManager,
-      drs: {
-        ...ex.drs,
-        slotLabel: ex.drs.slot ? SLOT_LABEL[ex.drs.slot] : null,
-        componentName: ex.drs.slot ? comps[ex.drs.slot]?.name ?? null : null,
-      },
+      // Il DRS non è una voce di punteggio: è il moltiplicatore applicato a UNO slot.
+      // Il frontend lo mostra addosso a quel componente, non in fondo fra i bonus.
+      drs: ex.drs
+        ? {
+            ...ex.drs,
+            slotLabel: SLOT_LABEL[ex.drs.slot],
+            componentName: comps[ex.drs.slot]?.name ?? null,
+          }
+        : null,
     },
   };
 }
@@ -266,7 +273,10 @@ export async function teamSeasonMatrix(seasonId: string, teamId: string) {
 
   const rounds = d.scoredRounds.map((r) => ({ round_no: r.round_no, code: r.code }));
 
-  const engineKeys = [...SLOTS, 'pole', 'teamManager', 'drsBonus'] as const;
+  // ⚠️ Niente riga "DRS": il DRS è un moltiplicatore, i suoi punti sono già dentro lo slot
+  // su cui è stato giocato. Una riga a parte li conterebbe due volte e — peggio — farebbe
+  // credere che sia un bonus. Al suo posto si segnala QUALE cella è stata raddoppiata.
+  const engineKeys = [...SLOTS, 'pole', 'teamManager'] as const;
   // La riga «Simulatore» compare solo se il premio è acceso: con `simulatorPoints = 0`
   // la tabella è identica a prima, senza una riga di zeri che non spiega niente.
   const simOn = (d.rules.simulatorPoints ?? 0) > 0;
@@ -275,7 +285,6 @@ export async function teamSeasonMatrix(seasonId: string, teamId: string) {
     ...SLOT_LABEL,
     pole: 'Pole',
     teamManager: 'Team Manager',
-    drsBonus: 'DRS',
     simulator: 'Simulatore',
   };
   const points: Record<string, number[]> = {};
@@ -283,28 +292,32 @@ export async function teamSeasonMatrix(seasonId: string, teamId: string) {
   const componentNames: Record<string, string[]> = {};
   for (const s of SLOTS) componentNames[s] = [];
   const columnTotals: number[] = [];
+  /** slot → indici di colonna in cui quel componente è stato raddoppiato dal DRS. */
+  const drsCells: Record<string, number[]> = {};
+  for (const s of SLOTS) drsCells[s] = [];
 
-  for (const r of d.scoredRounds) {
+  d.scoredRounds.forEach((r, colonna) => {
     const sim = d.simPoints.get(r.round_no)?.get(teamId) ?? 0;
     const roster = d.rosterAt(teamId, r.round_no);
     if (!roster) {
       for (const k of engineKeys) points[k].push(0);
       if (simOn) points.simulator.push(sim);
       columnTotals.push(sim);
-      continue;
+      return;
     }
     const raw = d.rawByRound.get(r.id)!;
     const b = computeTeamRound(raw, roster, d.rules, d.drsMap.get(teamId)?.get(r.id));
     for (const k of engineKeys) points[k].push(b[k as keyof typeof b] as number);
     if (simOn) points.simulator.push(sim);
     columnTotals.push(b.total + sim);
+    if (b.drs) drsCells[b.drs.slot].push(colonna);
 
     const comps = d.componentsAt(teamId, r.round_no);
     for (const s of SLOTS) {
       const nm = comps[s]?.name;
       if (nm && !componentNames[s].includes(nm)) componentNames[s].push(nm);
     }
-  }
+  });
 
   const rows = keys.map((k) => ({
     key: k,
@@ -312,6 +325,8 @@ export async function teamSeasonMatrix(seasonId: string, teamId: string) {
     componentNames: componentNames[k] ?? [],
     points: points[k],
     total: points[k].reduce((a, b) => a + b, 0),
+    /** Colonne in cui questa riga è stata moltiplicata dal DRS: da marcare a schermo. */
+    drsAt: drsCells[k] ?? [],
   }));
 
   return {

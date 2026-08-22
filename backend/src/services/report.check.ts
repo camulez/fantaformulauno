@@ -49,20 +49,41 @@ function check(name: string, cond: boolean, extra?: string) {
     const tag = drs ?? 'senza DRS';
 
     for (const s of ex.slots) {
+      // Il valore dello slot = le sue parti + l'eventuale raddoppio del DRS. Sommare il
+      // raddoppio QUI, e non in fondo al totale, è tutto il senso della modifica.
+      const raddoppio = s.drs?.aggiunta ?? 0;
       if (s.slot === 'telaio' || s.slot === 'motore') {
-        const sum = s.drivers.reduce((a, d) => a + d.counted, 0);
+        const sum = s.drivers.reduce((a, d) => a + d.counted, 0) + raddoppio;
         check(`${tag}: ${s.slot} spiegato = calcolato`, sum === s.points, `${sum} vs ${s.points}`);
       } else if (s.slot === 'pilota1' || s.slot === 'pilota2') {
-        check(`${tag}: ${s.slot} spiegato = calcolato`, s.race + s.sprint === s.points, `${s.race}+${s.sprint} vs ${s.points}`);
+        const sum = s.race + s.sprint + raddoppio;
+        check(`${tag}: ${s.slot} spiegato = calcolato`, sum === s.points, `${sum} vs ${s.points}`);
       } else if (s.slot === 'sponsor' || s.slot === 'benzina') {
-        const sum = s.carsScored * s.perCar;
+        const sum = s.carsScored * s.perCar + raddoppio;
         check(`${tag}: ${s.slot} spiegato = calcolato`, sum === s.points, `${sum} vs ${s.points}`);
       }
+      check(`${tag}: solo lo slot col DRS porta il raddoppio`, s.drs === null || s.slot === ex.drs?.slot);
     }
 
+    // ⚠️ Il DRS NON entra in questa somma: è un moltiplicatore, i suoi punti sono già
+    // dentro lo slot su cui è giocato. Se un giorno tornasse a essere un addendo separato,
+    // questo controllo se ne accorgerebbe subito.
     const sumAll =
-      ex.slots.reduce((a, s) => a + s.points, 0) + ex.pole.points + ex.teamManager.points + ex.drs.bonus;
+      ex.slots.reduce((a, s) => a + s.points, 0) + ex.pole.points + ex.teamManager.points;
     check(`${tag}: le voci sommano al totale del round`, sumAll === ex.breakdown.total, `${sumAll} vs ${ex.breakdown.total}`);
+
+    if (ex.drs) {
+      const slotColDrs = ex.slots.find((s) => s.slot === ex.drs!.slot)!;
+      check(
+        `${tag}: il raddoppio è DENTRO lo slot (${ex.drs.slot})`,
+        slotColDrs.points === ex.drs.base + ex.drs.aggiunta,
+        `${slotColDrs.points} vs ${ex.drs.base}+${ex.drs.aggiunta}`
+      );
+      check(
+        `${tag}: l'aggiunta è la quota moltiplicata × (moltiplicatore−1)`,
+        ex.drs.aggiunta === ex.drs.moltiplicata * (ex.drs.multiplier - 1)
+      );
+    }
   }
 
   // Coerenza delle spiegazioni "logiche"
@@ -119,7 +140,6 @@ function check(name: string, cond: boolean, extra?: string) {
           ['benzina', b.benzina],
           ['pole', b.pole],
           ['teamManager', b.teamManager],
-          ['drsBonus', b.drsBonus],
         ];
         for (const [k, atteso] of coppie) {
           check(`${nome}: riga ${k} = stagione`, rowOf(k) === atteso, `${rowOf(k)} vs ${atteso}`);
@@ -141,8 +161,7 @@ function check(name: string, cond: boolean, extra?: string) {
         const sommaRighe =
           rep.rows.reduce((a, r) => a + r.points, 0) +
           (rep.derived?.pole.points ?? 0) +
-          (rep.derived?.teamManager.points ?? 0) +
-          (rep.derived?.drs.bonus ?? 0);
+          (rep.derived?.teamManager.points ?? 0);
         check('report: le voci sommano al totale del round', sommaRighe === rep.total, `${sommaRighe} vs ${rep.total}`);
         check('report: 6 pezzi elencati', rep.rows.length === 6, `${rep.rows.length}`);
         check('report: posizione nel round valida', rep.position >= 1 && rep.position <= standings.teams.length);

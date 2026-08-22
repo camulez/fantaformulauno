@@ -85,7 +85,17 @@ export default async function SquadraPage({ params }: { params: Promise<{ id: st
             {/* Derivati: non si comprano, li calcola il motore */}
             <DerivedRow label="Pole" value={team!.breakdown.pole} />
             <DerivedRow label="Team Manager" value={team!.breakdown.teamManager} />
-            {team!.breakdown.drsBonus > 0 && <DerivedRow label="DRS" value={team!.breakdown.drsBonus} />}
+            {/* ⚠️ NON è una riga di punteggio: il DRS è un moltiplicatore e i suoi punti
+                sono già dentro i sei pezzi qui sopra. Si dice «di cui», non si somma. */}
+            {team!.breakdown.drsExtra > 0 && (
+              <DataRow className="flex items-center gap-3 border-t border-line/60">
+                <Label className="w-16 shrink-0 text-acid-deep">DRS</Label>
+                <span className="note min-w-0 flex-1 truncate">
+                  di cui dal raddoppio, già compresi qui sopra
+                </span>
+                <span className="num text-sm font-bold text-acid">+{team!.breakdown.drsExtra}</span>
+              </DataRow>
+            )}
             {team!.breakdown.simulator > 0 && (
               <DerivedRow label="Simulatore" value={team!.breakdown.simulator} />
             )}

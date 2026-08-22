@@ -84,7 +84,11 @@ export interface StandingBreakdown {
   benzina: number;
   pole: number;
   teamManager: number;
-  drsBonus: number;
+  /**
+   * Punti arrivati dal raddoppio del DRS. ⚠️ Sono GIÀ dentro i sei slot: il DRS è un
+   * moltiplicatore, non una voce che si somma. Serve solo per dire «di cui dal DRS».
+   */
+  drsExtra: number;
   /** Premio simulatore. 0 se `simulatorPoints` è spento o se non hai vinto nessun circuito. */
   simulator: number;
 }
@@ -219,10 +223,18 @@ export interface ReportCtorDriver {
   sprintDeduction: Deduzione;
   counted: number;
 }
+/** Il raddoppio visto da uno slot: `points` lo comprende già. */
+export interface RowDrs {
+  moltiplicata: number;
+  aggiunta: number;
+  multiplier: number;
+}
 interface ReportRowBase {
+  /** Valore finale del componente: se il DRS è stato giocato qui, è già moltiplicato. */
   points: number;
   label: string;
   componentName: string;
+  drs: RowDrs | null;
 }
 // Unione discriminata su `slot`: così il frontend può restringere il tipo con uno switch.
 export type ReportRow =
@@ -241,14 +253,17 @@ export interface RoundReport {
   derived: {
     pole: { points: number; driverName: string | null; owned: boolean };
     teamManager: { p1Scored: boolean; p2Scored: boolean; points: number };
+    /** Il DRS giocato in questo round, o null. Non è un bonus: vedi `RowDrs`. */
     drs: {
-      slot: ReportSlot | null;
-      bonus: number;
+      slot: ReportSlot;
+      base: number;
+      moltiplicata: number;
+      aggiunta: number;
       scope: "race" | "race_sprint";
       multiplier: number;
-      slotLabel: string | null;
+      slotLabel: string;
       componentName: string | null;
-    };
+    } | null;
   } | null;
   /** Premio simulatore su questo round: 0 se spento o se il miglior tempo non è tuo. */
   simulator: number;
@@ -257,6 +272,8 @@ export interface RoundReport {
 export interface SeasonMatrixRow {
   key: string;
   label: string;
+  /** Colonne in cui il DRS ha moltiplicato questa riga: da marcare a schermo. */
+  drsAt: number[];
   componentNames: string[];
   points: number[];
   total: number;
@@ -349,4 +366,34 @@ export interface SimLeaderboard {
   round: { round_no: number; code: string | null; name: string | null; status: string } | null;
   open: boolean;
   rows: SimLeaderboardRow[];
+}
+
+// ─── DRS: tabellone di stagione ───
+export interface DrsUsato {
+  slot: string;
+  roundNo: number;
+  roundCode: string | null;
+  /** Gara già a referto: quel DRS ha già inciso sulla classifica. */
+  scored: boolean;
+}
+
+export interface DrsSquadra {
+  teamId: string;
+  name: string;
+  person: string;
+  isMine: boolean;
+  used: DrsUsato[];
+  left: number;
+  /** Slot giocato sulla prossima gara, o null se non ha ancora deciso. */
+  onNext: string | null;
+}
+
+export interface DrsBoard {
+  maxPerSeason: number;
+  multiplier: number;
+  scope: "race" | "race_sprint";
+  slots: string[];
+  rounds: { roundNo: number; code: string | null; name: string | null; scored: boolean }[];
+  prossimoRound: { roundNo: number; code: string | null; name: string | null } | null;
+  teams: DrsSquadra[];
 }
