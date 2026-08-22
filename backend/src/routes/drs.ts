@@ -66,8 +66,40 @@ drsRouter.put('/team/:teamId', async (req, res) => {
     return;
   }
 
-  const { data: rounds } = await supabase.from('rounds').select('id, round_no').eq('season_id', seasonId);
+  const { data: rounds } = await supabase.from('rounds').select('id, round_no, status').eq('season_id', seasonId);
   const idByNo = new Map((rounds ?? []).map((r) => [r.round_no, r.id]));
+  const corsi = new Set((rounds ?? []).filter((r) => r.status === 'scored').map((r) => r.round_no));
+
+  // ── Le gare già disputate non si toccano ──
+  // Il DRS si dichiara PRIMA delle qualifiche: cambiarlo dopo riscriverebbe una classifica
+  // che tutti hanno già visto. Le dichiarazioni storiche restano dove sono — vanno lasciate
+  // passare identiche, altrimenti non si potrebbe più salvare nulla — ma non se ne aggiungono,
+  // spostano o tolgono su un GP a referto. (Serve correggerne una? Si riapre il round da
+  // «Inserisci», togliendo la spunta «disputato».)
+  const { data: attuali } = await supabase
+    .from('drs_declarations')
+    .select('round_id, slot')
+    .eq('fantasy_team_id', teamId);
+  const noById = new Map((rounds ?? []).map((r) => [r.id, r.round_no]));
+  const primaSuCorsi = new Map<number, string>();
+  for (const a of attuali ?? []) {
+    const rn = noById.get(a.round_id);
+    if (rn != null && corsi.has(rn)) primaSuCorsi.set(rn, a.slot);
+  }
+  const dopoSuCorsi = new Map<number, string>();
+  for (const d of decls) if (corsi.has(d.roundNo)) dopoSuCorsi.set(d.roundNo, d.slot);
+
+  const toccati = [...new Set([...primaSuCorsi.keys(), ...dopoSuCorsi.keys()])]
+    .filter((rn) => primaSuCorsi.get(rn) !== dopoSuCorsi.get(rn))
+    .sort((a, b) => a - b);
+  if (toccati.length > 0) {
+    res.status(409).json({
+      error:
+        `Il GP ${toccati.map((r) => `R${r}`).join(', ')} è già stato disputato: il DRS si dichiara prima delle qualifiche. ` +
+        `Per correggerlo riapri il round da «Inserisci» togliendo la spunta «disputato».`,
+    });
+    return;
+  }
   const rows: { fantasy_team_id: string; round_id: string; slot: string }[] = [];
   for (const d of decls) {
     const rid = idByNo.get(d.roundNo);

@@ -59,8 +59,13 @@ export function DrsForm({
 
   return (
     <div className="pb-24">
+      <p className="note mb-1">
+        Il DRS <span className="text-acid">moltiplica ×2</span> i punti di Gara del pezzo su cui lo
+        giochi: non aggiunge punti, raddoppia quelli che quel pezzo fa.
+      </p>
       <p className="label mb-3">
-        <span className="text-acid">{usedCount}</span> / {max} DRS · 1 per componente, 1 per round (solo punti Race)
+        <span className="text-acid">{usedCount}</span> / {max} usati · uno per categoria, uno per gara ·
+        le gare già corse sono bloccate
       </p>
       <div className="space-y-1.5">
         {rounds.map((r) => {
@@ -71,15 +76,21 @@ export function DrsForm({
               .filter(Boolean)
           );
           const val = sel[r.round_no] ?? "";
+          // Gara già disputata: il DRS si dichiara PRIMA delle qualifiche, quindi qui non si
+          // tocca più. Resta visibile — è storia — ma bloccato. Per correggerlo si riapre il
+          // round da «Inserisci». Il server rifiuta comunque, questo evita di provarci.
+          const corsa = r.status === "scored";
           return (
-            <div key={r.id} className="flex items-center gap-2">
+            <div key={r.id} className={`flex items-center gap-2 ${corsa ? "opacity-55" : ""}`}>
               <span className="num w-16 shrink-0 text-xs text-bone">
                 R{r.round_no} <span className="text-bone-dim">{r.code}</span>
               </span>
               <select
                 value={val}
+                disabled={corsa}
+                title={corsa ? "GP già disputato: il DRS non si cambia più" : undefined}
                 onChange={(e) => setSel((p) => ({ ...p, [r.round_no]: e.target.value }))}
-                className={`min-w-0 flex-1 rounded border bg-carbon-950 px-2 py-1.5 text-sm outline-none focus:border-acid ${
+                className={`min-w-0 flex-1 rounded border bg-carbon-950 px-2 py-1.5 text-sm outline-none focus:border-acid disabled:cursor-not-allowed ${
                   val ? "border-acid/60 text-acid" : "border-line text-bone"
                 }`}
               >
@@ -90,6 +101,7 @@ export function DrsForm({
                   </option>
                 ))}
               </select>
+              {corsa && <span className="label shrink-0">corsa</span>}
             </div>
           );
         })}
