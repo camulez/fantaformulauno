@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, unstable_rethrow } from "next/navigation";
 import { serverFetch } from "@/lib/api.server";
 import { BottomNav } from "@/components/BottomNav";
 import { CumulativeChart } from "@/components/charts/CumulativeChart";
@@ -22,7 +22,10 @@ export default async function SquadraPage({ params }: { params: Promise<{ id: st
   let team: TeamDetail;
   try {
     team = await serverFetch<TeamDetail>(`/standings/team/${id}`);
-  } catch {
+  } catch (err) {
+    // `redirect()` di Next funziona LANCIANDO: senza questo, una sessione scaduta o un
+    // servizio giù finirebbero qui e mostrerebbero la pagina sbagliata.
+    unstable_rethrow(err);
     notFound();
   }
 

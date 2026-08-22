@@ -1,3 +1,4 @@
+import { unstable_rethrow } from "next/navigation";
 import Link from "next/link";
 import { serverFetch } from "@/lib/api.server";
 import { BottomNav } from "@/components/BottomNav";
@@ -19,7 +20,10 @@ export default async function ReportPage({
     try {
       const mine = await serverFetch<{ teamId: string }>("/report/my-team");
       teamId = mine.teamId;
-    } catch {
+    } catch (err) {
+      // `redirect()` di Next funziona LANCIANDO: senza questo, una sessione scaduta o un
+      // servizio giù finirebbero qui e mostrerebbero la pagina sbagliata.
+      unstable_rethrow(err);
       teamId = standings.teams[0]?.teamId;
     }
   }

@@ -31,11 +31,25 @@ export default async function SimulatorePage({
 
   // ── Un circuito del campionato: si guida solo se il GP non è ancora stato corso ──
   if (Number.isInteger(roundNo) && TRACKS.some((t) => t.roundNo === roundNo)) {
-    const data = await serverFetch<SimTracksPayload>("/simulator/tracks").catch(() => null);
-    const info = data?.tracks.find((t) => t.roundNo === roundNo);
+    const data = await serverFetch<SimTracksPayload>("/simulator/tracks");
+    const info = data.tracks.find((t) => t.roundNo === roundNo);
     const def = getTrack(roundNo);
 
-    if (info && !info.open) {
+    if (!info) {
+      return (
+        <Screen>
+          <PageHeader back="/simulatore" backLabel="Circuiti" kicker="Simulatore" title={def.name} />
+          <Main width="md">
+            <Empty title="Non in calendario" action={<Btn href="/simulatore">Torna ai circuiti</Btn>}>
+              R{roundNo} non fa parte del calendario di questa stagione.
+            </Empty>
+          </Main>
+          <BottomNav />
+        </Screen>
+      );
+    }
+
+    if (!info.open) {
       return (
         <Screen>
           <PageHeader back="/simulatore" backLabel="Circuiti" kicker="Simulatore" title={def.name} />
@@ -52,7 +66,7 @@ export default async function SimulatorePage({
       );
     }
 
-    if (info && info.attemptsLeft === 0) {
+    if (info.attemptsLeft === 0) {
       return (
         <Screen>
           <PageHeader back="/simulatore" backLabel="Circuiti" kicker="Simulatore" title={def.name} />
@@ -61,7 +75,7 @@ export default async function SimulatorePage({
               title="Tentativi esauriti"
               action={<Btn href={`/simulatore/classifica/${roundNo}`}>Vedi la classifica</Btn>}
             >
-              Hai usato tutti e {data?.maxAttempts ?? 3} i tentativi su questo circuito. Vale il tuo miglior
+              Hai usato tutti e {data.maxAttempts} i tentativi su questo circuito. Vale il tuo miglior
               tempo: <span className="num text-acid">{formatTime(info.myBest ?? 0)}</span>. Per continuare a
               guidare c&apos;è la pista prova.
             </Empty>
@@ -79,7 +93,7 @@ export default async function SimulatorePage({
     return (
       <Screen>
         <main className="flex-1">
-          <SimLoader roundNo={roundNo} mode="timed" attemptsLeft={info?.attemptsLeft ?? 3} />
+          <SimLoader roundNo={roundNo} mode="timed" attemptsLeft={info.attemptsLeft} />
         </main>
         <BottomNav />
       </Screen>
@@ -87,9 +101,12 @@ export default async function SimulatorePage({
   }
 
   // ── Scelta del circuito ──
-  const data = await serverFetch<SimTracksPayload>("/simulator/tracks").catch(() => null);
-  const byRound = new Map((data?.tracks ?? []).map((t) => [t.roundNo, t]));
-  const maxAttempts = data?.maxAttempts ?? 3;
+  // Niente `.catch`: se lo stato dei circuiti non si può leggere, `serverFetch` porta alla
+  // schermata che spiega perché. Inventare «tutti aperti, 3 tentativi» — come faceva prima —
+  // costruiva una realtà credibile e falsa, ed è il difetto che ha ingannato l'utente.
+  const data = await serverFetch<SimTracksPayload>("/simulator/tracks");
+  const byRound = new Map(data.tracks.map((t) => [t.roundNo, t]));
+  const maxAttempts = data.maxAttempts;
 
   const cards = TRACKS.map((t) => {
     const g = buildGeometry(t);
@@ -99,11 +116,12 @@ export default async function SimulatorePage({
       code: t.code,
       name: t.name,
       km: (g.length / 1000).toFixed(2),
-      // Se il backend non risponde, meglio mostrare tutto aperto che spegnere tutto.
-      open: info?.open ?? true,
-      attemptsLeft: info?.attemptsLeft ?? maxAttempts,
+      // Un circuito non in calendario non è "aperto": è semplicemente ignoto.
+      open: info?.open ?? false,
+      attemptsLeft: info?.attemptsLeft ?? 0,
       myBest: info?.myBest ?? null,
       record: info?.record ?? null,
+      inCalendario: info !== undefined,
     };
   });
   const aperti = cards.filter((c) => c.open).length;
@@ -194,7 +212,9 @@ export default async function SimulatorePage({
                       </p>
                     </>
                   ) : (
-                    <p className="label mt-2">Già corso · chiuso</p>
+                    <p className="label mt-2">
+                      {c.inCalendario ? "Già corso · chiuso" : "Non in calendario"}
+                    </p>
                   )}
                 </>
               );

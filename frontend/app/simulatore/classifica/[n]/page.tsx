@@ -10,9 +10,11 @@ export default async function SimClassificaPage({ params }: { params: Promise<{ 
   const roundNo = Number(n);
   await serverFetch<Me>("/auth/me");
 
-  const data = await serverFetch<SimLeaderboard>(`/simulator/leaderboard/${roundNo}`).catch(() => null);
+  // Niente `.catch`: una classifica vuota perché il backend è giù e una classifica vuota
+  // perché nessuno ha ancora girato sono due cose diverse, e vanno dette in modo diverso.
+  const data = await serverFetch<SimLeaderboard>(`/simulator/leaderboard/${roundNo}`);
   const def = getTrack(roundNo);
-  const rows = data?.rows ?? [];
+  const rows = data.rows;
   const best = rows[0]?.timeMs ?? 0;
 
   return (
@@ -22,8 +24,8 @@ export default async function SimClassificaPage({ params }: { params: Promise<{ 
         backLabel="Circuiti"
         kicker={`Simulatore · R${roundNo}`}
         title={def.name}
-        subtitle={data?.open ? "Circuito aperto" : "GP disputato · circuito chiuso"}
-        action={data?.open ? <Btn href={`/simulatore?r=${roundNo}`} variant="outline">Gira</Btn> : undefined}
+        subtitle={data.open ? "Circuito aperto" : "GP disputato · circuito chiuso"}
+        action={data.open ? <Btn href={`/simulatore?r=${roundNo}`} variant="outline">Gira</Btn> : undefined}
       />
 
       <Main width="md">
@@ -31,14 +33,14 @@ export default async function SimClassificaPage({ params }: { params: Promise<{ 
           <Empty
             title="Nessun tempo registrato"
             action={
-              data?.open ? (
+              data.open ? (
                 <Btn href={`/simulatore?r=${roundNo}`}>Sii il primo</Btn>
               ) : (
                 <Btn href="/simulatore?r=0" variant="quiet">Vai alla pista prova</Btn>
               )
             }
           >
-            {data?.open
+            {data.open
               ? "Nessuno ha ancora girato su questo circuito."
               : "Il GP è stato disputato senza che nessuno registrasse un tempo."}
           </Empty>
@@ -86,7 +88,7 @@ export default async function SimClassificaPage({ params }: { params: Promise<{ 
 
         {rows.length > 0 && (
           <div className="mt-4 flex items-center justify-between gap-2">
-            <Chip tone={data?.open ? "acid" : "quiet"}>{data?.open ? "● Aperto" : "○ Chiuso"}</Chip>
+            <Chip tone={data.open ? "acid" : "quiet"}>{data.open ? "● Aperto" : "○ Chiuso"}</Chip>
             <p className="note">Vale il miglior tempo di ogni pilota.</p>
           </div>
         )}

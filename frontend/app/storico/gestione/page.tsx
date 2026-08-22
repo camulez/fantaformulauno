@@ -1,3 +1,4 @@
+import { unstable_rethrow } from "next/navigation";
 import { serverFetch } from "@/lib/api.server";
 import { BottomNav } from "@/components/BottomNav";
 import { AlboEditor } from "@/components/AlboEditor";
@@ -12,7 +13,10 @@ export default async function GestioneAlboPage() {
   let season: SeasonInfo | null = null;
   try {
     season = await serverFetch<SeasonInfo>("/season/current");
-  } catch {
+  } catch (err) {
+    // `redirect()` di Next funziona LANCIANDO: senza questo, una sessione scaduta o un
+    // servizio giù finirebbero qui e mostrerebbero la pagina sbagliata.
+    unstable_rethrow(err);
     season = null;
   }
 
