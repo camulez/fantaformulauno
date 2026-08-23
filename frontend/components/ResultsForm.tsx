@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { clientFetch } from "@/lib/api";
 import { Btn, Field, Label, Note, Section, fieldCls, StickyBar } from "@/components/ui";
+import { LineupForm } from "@/components/LineupForm";
 import type { Driver, ReferenceData, RoundResults } from "@/lib/types";
 import { BoltIcon, CheckIcon } from "@/components/icons";
 
@@ -141,7 +142,11 @@ export function ResultsForm() {
             )}
           </div>
 
-          <div className="mb-4">
+          {/* Sostituzioni del weekend: si registra chi è sceso davvero in pista, così i
+              punti costruttore vanno alla scuderia che ha schierato il pilota. */}
+          <LineupForm roundNo={selected.round_no} />
+
+          <div className="mb-4 mt-4">
             <Field label="Punto Pole (miglior tempo in Qualifying)">
               <select value={pole} onChange={(e) => setPole(e.target.value)} className={`${fieldCls} text-sm`}>
                 <option value="">— nessuna —</option>

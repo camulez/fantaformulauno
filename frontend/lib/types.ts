@@ -397,3 +397,27 @@ export interface DrsBoard {
   prossimoRound: { roundNo: number; code: string | null; name: string | null } | null;
   teams: DrsSquadra[];
 }
+
+// ─── Formazione di gara (sostituzioni) ───
+export interface LineupDriver {
+  id: string;
+  name: string;
+  fiaTeamId: string | null;
+  isReserve: boolean;
+}
+
+export interface LineupTeam {
+  fiaTeamId: string;
+  name: string;
+  /** Organico di anagrafica. */
+  abituale: string[];
+  /** Chi corre davvero in questo round. */
+  effettiva: string[];
+  modificata: boolean;
+}
+
+export interface RoundLineups {
+  round: { roundNo: number; code: string | null; name: string | null; hasSprint: boolean; scored: boolean };
+  drivers: LineupDriver[];
+  teams: LineupTeam[];
+}

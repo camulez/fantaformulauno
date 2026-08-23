@@ -16,6 +16,7 @@ import { auctionRouter } from './routes/auction';
 import { componentsRouter } from './routes/components';
 import { reportRouter } from './routes/report';
 import { simulatorRouter } from './routes/simulator';
+import { lineupsRouter } from './routes/lineups';
 import { pingDb, requireDb, segnalaDbSu } from './middleware/dbHealth';
 
 const app = express();
@@ -59,6 +60,7 @@ app.use('/auction', auctionRouter);
 app.use('/components', componentsRouter);
 app.use('/report', reportRouter);
 app.use('/simulator', simulatorRouter);
+app.use('/lineups', lineupsRouter);
 // Router successivi (montati man mano che le fasi avanzano):
 // app.use('/market', marketRouter);
 // app.use('/drs', drsRouter);

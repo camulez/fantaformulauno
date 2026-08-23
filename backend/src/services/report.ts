@@ -5,6 +5,7 @@
 import { supabase } from '../db/supabase';
 import { DEFAULT_RULES, ScoringRules } from '../config/defaultRules';
 import { loadSimulatorPoints } from './simulatorPointsData';
+import { mergeLineups } from './lineups';
 import {
   computeTeamRound,
   explainTeamRound,
@@ -86,14 +87,13 @@ async function loadReportData(seasonId: string) {
       if (s.session === 'race') race[s.driver_id] = entry;
       else sprint[s.driver_id] = entry;
     }
-    const roundLineups = (lineupR.data ?? []).filter((l) => l.round_id === r.id);
-    let lineup: Record<string, string[]>;
-    if (roundLineups.length) {
-      lineup = {};
-      for (const l of roundLineups) (lineup[l.fia_team_id] ??= []).push(l.driver_id);
-    } else {
-      lineup = Object.fromEntries(driversByTeam);
-    }
+    // Organico effettivo: anagrafica, con SOLO le scuderie modificate sovrascritte.
+    // (Prima si buttava via l'anagrafica intera appena esisteva una riga: bastava una
+    // sostituzione per lasciare tutte le altre scuderie senza piloti e senza punti.)
+    const lineup = mergeLineups(
+      Object.fromEntries(driversByTeam),
+      (lineupR.data ?? []).filter((l) => l.round_id === r.id)
+    );
     const pole = (poleR.data ?? []).find((p) => p.round_id === r.id);
     rawByRound.set(r.id, { race, sprint, lineup, poleDriverId: pole?.pole_driver_id ?? null });
   }
