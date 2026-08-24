@@ -15,7 +15,7 @@ export default async function ImpostazioniPage() {
         back="/"
         backLabel="Home"
         title="Matrice punteggi"
-        subtitle="Regole di assegnazione punti della stagione"
+        subtitle="I valori applicati dal motore · il testo è nel Regolamento"
       />
 
       <Main width="md">

@@ -9,7 +9,8 @@ const LINKS = [
   { href: "/drs", label: "DRS" },
   { href: "/report", label: "Report" },
   { href: "/bacheca", label: "Bacheca" },
-  { href: "/impostazioni", label: "Regole" },
+  { href: "/regolamento", label: "Regolamento" },
+  { href: "/impostazioni", label: "Punteggi" },
   { href: "/profilo", label: "Profilo" },
 ];
 
