@@ -421,3 +421,20 @@ export interface RoundLineups {
   drivers: LineupDriver[];
   teams: LineupTeam[];
 }
+
+// ─── Art. II: sostituzioni piloti ───
+export interface Proprietari {
+  /** componentId → chi lo possiede adesso. */
+  di: Record<string, { teamId: string; teamName: string; slot: string }>;
+}
+
+export interface PrezzoComponente {
+  componentId: string;
+  name: string;
+  kind: string;
+  /** Base d'asta originaria. */
+  base: number;
+  /** Punti FIA già realizzati (i Punti DRS non contano — nota ³ del regolamento). */
+  punti: number;
+  prezzo: number;
+}
