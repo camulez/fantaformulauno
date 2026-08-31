@@ -4,9 +4,19 @@
 # l'altro passano spesso più di 7 giorni, quindi il campionato trovava regolarmente il
 # database spento — e l'app sembrava rotta. Una query ogni 3 giorni azzera quel contatore.
 #
-# /health/db interroga davvero il database (non è un semplice ping HTTP), quindi conta come
-# attività per Supabase. Sveglia anche Render, ma solo per pochi minuti ogni tre giorni:
-# nulla rispetto alle 750 ore gratuite mensili.
+# /health/db interroga davvero il database (non è un semplice ping HTTP). Sveglia anche Render,
+# ma solo per pochi minuti al giorno: nulla rispetto alle 750 ore gratuite mensili, e il repo è
+# pubblico quindi i minuti Actions non si pagano.
+#
+# ⚠️ MISURATO IL 31/08/2026: questa sveglia NON è bastata. Ha risposto 200 il 22, il 25 e il 28
+# agosto e il 31 il progetto era sospeso lo stesso — meno di 3 giorni dopo attività dimostrata,
+# altro che 7 giorni di inattività. Due spiegazioni possibili, nessuna verificabile da fuori:
+# (a) Supabase non conta come attività una lettura da poche centinaia di byte (nel pannello free
+# l'egress risultava 0 MB); (b) un incidente loro, visto che quel giorno la dashboard mostrava
+# «We are investigating a technical issue».
+# Da ogni 3 giorni si è passati a ogni giorno: è gratis e copre il caso (a) con margine. Se
+# ricapita NONOSTANTE la cadenza giornaliera, la conclusione è che il ping non conta: allora
+# serve un ticket a Supabase, non un cron più fitto.
 #
 # ⚠️ GitHub disattiva le azioni programmate nei repository fermi da 60 giorni: se il
 # campionato va in letargo per due mesi, va riattivata a mano dalla tab Actions.
@@ -14,7 +24,7 @@ name: Sveglia servizi
 
 on:
   schedule:
-    - cron: "0 6 */3 * *"
+    - cron: "0 6 * * *"
   workflow_dispatch:
 
 jobs:
