@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { supabase } from '../db/supabase';
 import { requireAuth } from '../middleware/auth';
+import { componentiNonComprabili } from '../services/riserve';
 import { getCurrentSeasonId } from '../services/currentSeason';
 import { AuctionState, PHASE_ORDER, Slot } from '../types/auction';
 import { loadState, saveState, clearState } from '../services/auctionStore';
@@ -27,7 +28,10 @@ async function buildInitialState(seasonId: string): Promise<AuctionState | { err
     supabase.from('drivers').select('id, fia_team_id').eq('season_id', seasonId),
   ]);
   const teams = teamsR.data ?? [];
-  const comps = compsR.data ?? [];
+  // ⚠️ Le riserve hanno un componente perché possano entrare in una squadra (Art. II), ma non
+  // vanno all'asta: non erano in anagrafica a inizio stagione e non hanno una base d'asta.
+  const nonComprabili = await componentiNonComprabili(seasonId);
+  const comps = (compsR.data ?? []).filter((c) => !nonComprabili.has(c.id));
   if (teams.length === 0) return { error: 'Nessuna squadra nella stagione' };
   if (comps.length === 0) return { error: 'Nessun componente nella stagione' };
 

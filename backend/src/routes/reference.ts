@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { supabase } from '../db/supabase';
 import { requireAuth } from '../middleware/auth';
 import { getCurrentSeasonId } from '../services/currentSeason';
+import { assicuraComponentePilota } from '../services/riserve';
 import { DEFAULT_RULES } from '../config/defaultRules';
 
 export const referenceRouter = Router();
@@ -40,8 +41,10 @@ referenceRouter.get('/current', async (_req, res) => {
  * nell'anagrafica di inizio stagione (Tsunoda in Racing Bulls al GP d'Olanda 2026): senza
  * questo, il campionato si ferma finché qualcuno non mette le mani nel database.
  *
- * ⚠️ Non crea un `components`: una riserva NON è un pezzo comprabile all'asta e non si può
- * possedere. I suoi punti contano solo per il costruttore che la schiera.
+ * Crea ANCHE il `components` corrispondente, perché l'Art. II.b/II.c/II.d-2 prevede che un
+ * sostituto entri temporaneamente in una squadra, e le rose puntano ai componenti.
+ * ⚠️ Questo NON lo rende comprabile: la comprabilità si deriva da `is_reserve` e tiene la
+ * riserva fuori dall'asta e dal listino (vedi `services/riserve.ts`).
  */
 referenceRouter.post('/driver', async (req, res) => {
   const seasonId = await getCurrentSeasonId();
@@ -83,5 +86,15 @@ referenceRouter.post('/driver', async (req, res) => {
     res.status(500).json({ error: error.message });
     return;
   }
-  res.status(201).json({ id: data.id, name: data.name, fiaTeamId: data.fia_team_id, isReserve: data.is_reserve });
+  // Il componente serve solo per poter occupare uno slot: se fallisce, il pilota resta
+  // comunque schierabile in formazione, quindi non si annulla la creazione.
+  const comp = await assicuraComponentePilota(seasonId, data.id);
+
+  res.status(201).json({
+    id: data.id,
+    name: data.name,
+    fiaTeamId: data.fia_team_id,
+    isReserve: data.is_reserve,
+    componentId: comp.componentId ?? null,
+  });
 });

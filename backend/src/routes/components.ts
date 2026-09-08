@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { supabase } from '../db/supabase';
 import { requireAuth } from '../middleware/auth';
 import { getCurrentSeasonId } from '../services/currentSeason';
+import { componentiNonComprabili } from '../services/riserve';
 import { loadState } from '../services/auctionStore';
 
 export const componentsRouter = Router();
@@ -30,10 +31,12 @@ componentsRouter.get('/values', async (_req, res) => {
     res.status(404).json({ error: 'Nessuna stagione' });
     return;
   }
-  const [compsR, config, state] = await Promise.all([
+  const [compsR, config, state, nonComprabili] = await Promise.all([
     supabase.from('components').select('id, kind, name, base_price').eq('season_id', seasonId).order('kind').order('name'),
     getConfig(seasonId),
     loadState(seasonId),
+    // Le riserve non hanno una base d'asta: restano fuori dal listino come dall'asta.
+    componentiNonComprabili(seasonId),
   ]);
 
   const assigned = new Map<string, { teamId: string; owner: string }>();
@@ -47,7 +50,7 @@ componentsRouter.get('/values', async (_req, res) => {
   res.json({
     approved: config.valuesApproved === true,
     auctionActive: !!state,
-    components: (compsR.data ?? []).map((c) => ({
+    components: (compsR.data ?? []).filter((c) => !nonComprabili.has(c.id)).map((c) => ({
       id: c.id,
       kind: c.kind,
       name: c.name,

@@ -78,3 +78,175 @@ export function scuderieModificate(predefiniti: Lineup, effettivi: Lineup): stri
     a.length === b.length && [...a].sort().join() === [...b].sort().join();
   return Object.keys(effettivi).filter((t) => !uguali(predefiniti[t], effettivi[t]));
 }
+
+// ─── Art. II del Regolamento Campionato: la catena delle sostituzioni ───
+//
+// Il caso vero (GP d'Olanda e Monza 2026): Hadjar (di zippof1team) non corre, al suo posto in
+// Red Bull va Lawson — che però è di Pio. L'Art. II.d dice che in quel caso resti privo del
+// pilota, e la «possibilità 2» ti dà diritto al pilota che a sua volta ha sostituito Lawson,
+// cioè Tsunoda. Ricostruire quella catena a mente ogni volta è il lavoro che qui fa l'app:
+// i dati per farlo ci sono già tutti (anagrafica, formazione del round, proprietà).
+
+/** Chi ha lasciato e chi ha preso il posto, scuderia per scuderia, in un round. */
+export interface CambioScuderia {
+  fiaTeamId: string;
+  usciti: string[];
+  entrati: string[];
+}
+
+export function cambiScuderia(predefiniti: Lineup, effettivi: Lineup): CambioScuderia[] {
+  const cambi: CambioScuderia[] = [];
+  for (const fiaTeamId of Object.keys(effettivi)) {
+    const prima = predefiniti[fiaTeamId] ?? [];
+    const dopo = effettivi[fiaTeamId] ?? [];
+    const usciti = prima.filter((d) => !dopo.includes(d));
+    const entrati = dopo.filter((d) => !prima.includes(d));
+    if (usciti.length > 0 || entrati.length > 0) cambi.push({ fiaTeamId, usciti, entrati });
+  }
+  return cambi;
+}
+
+/**
+ * Chi, fra i piloti di anagrafica, NON è sceso in pista da nessuna parte in questo round.
+ *
+ * ⚠️ Distinzione che sembra pedante e non lo è: «ha lasciato la sua scuderia» e «non ha corso»
+ * sono cose diverse. Al GP d'Olanda Lawson lascia Racing Bulls, ma corre — per Red Bull. Il suo
+ * Team Manager (Pio) prende i suoi punti come sempre e **non** ha nessun caso Art. II aperto.
+ * L'articolo parla del Pilota che «non scende in pista», non del pilota che cambia macchina.
+ * Senza questo filtro l'app proponeva un risarcimento a chi non aveva perso niente.
+ */
+export function assentiDalRound(predefiniti: Lineup, effettivi: Lineup): string[] {
+  const inPista = new Set(Object.values(effettivi).flat());
+  return [...new Set(Object.values(predefiniti).flat())].filter((d) => !inPista.has(d));
+}
+
+/**
+ * Un anello della catena: chi manca e chi ne ha preso il posto in quella scuderia.
+ *
+ * ⚠️ Se dalla stessa scuderia esce più di un pilota, l'abbinamento «chi ha sostituito chi»
+ * NON è deducibile dai dati: due uscite e due entrate si possono accoppiare in due modi.
+ * In quel caso `sostituto` resta null e `ambiguo` diventa true — l'app mostra i candidati
+ * e fa scegliere, invece di indovinare.
+ */
+export interface Anello {
+  assente: string;
+  fiaTeamId: string;
+  sostituto: string | null;
+  candidati: string[];
+  ambiguo: boolean;
+}
+
+export function catenaSostituzioni(predefiniti: Lineup, effettivi: Lineup): Anello[] {
+  const anelli: Anello[] = [];
+  for (const c of cambiScuderia(predefiniti, effettivi)) {
+    const ambiguo = c.usciti.length > 1 || c.entrati.length > 1;
+    for (const assente of c.usciti) {
+      anelli.push({
+        assente,
+        fiaTeamId: c.fiaTeamId,
+        sostituto: ambiguo ? null : (c.entrati[0] ?? null),
+        candidati: c.entrati,
+        ambiguo,
+      });
+    }
+  }
+  return anelli;
+}
+
+/**
+ * Quale caso dell'Art. II si applica, e quale pilota spetta al Team.
+ *
+ * - **II.b/II.c** — il sostituto non è di nessuno: entra temporaneamente nella tua squadra.
+ * - **II.d** — il sostituto è di un altro Team: resti privo del pilota. La possibilità 2 ti
+ *   dà il sostituto del sostituto, e si scende lungo la catena finché non se ne trova uno libero.
+ * - **II.e** — nessuno l'ha sostituito: non c'è niente da prendere.
+ *
+ * ⚠️ L'**Art. II.a** (squalifica FIA) NON è deducibile dai dati: una squalifica e una semplice
+ * assenza si assomigliano. Non viene mai restituito da qui — è un fatto che sa solo chi guarda
+ * la gara, e l'interfaccia lo dice a parole invece di fingere di riconoscerlo.
+ */
+export type CasoArt2 = 'II.bc' | 'II.d' | 'II.e';
+
+export interface EsitoArt2 {
+  assente: string;
+  caso: CasoArt2;
+  /** La catena percorsa: [assente, sostituto, sostituto del sostituto, ...]. */
+  percorso: string[];
+  /** Il pilota che entra temporaneamente nel Team, o null se non ce n'è uno libero. */
+  spettante: string | null;
+  ambiguo: boolean;
+  /** Solo per II.d: chi possiede il sostituto diretto, cioè perché non puoi prenderlo. */
+  bloccatoDa: string | null;
+  candidati: string[];
+}
+
+/** Quanti anelli si percorrono prima di arrendersi: protegge dai cicli e dai dati strani. */
+const MAX_PASSI = 10;
+
+export function sostitutoSpettante(
+  anelli: Anello[],
+  assente: string,
+  /** id del Team che possiede quel pilota, o null se non è di nessuno. */
+  proprietarioDi: (driverId: string) => string | null
+): EsitoArt2 {
+  const perAssente = new Map(anelli.map((a) => [a.assente, a]));
+  const percorso = [assente];
+  const visti = new Set<string>([assente]);
+  let bloccatoDa: string | null = null;
+  let corrente = assente;
+
+  for (let passo = 0; passo < MAX_PASSI; passo++) {
+    const anello = perAssente.get(corrente);
+    // Nessuno ha preso il suo posto: la catena finisce qui.
+    if (!anello || (anello.sostituto === null && !anello.ambiguo)) {
+      return {
+        assente,
+        caso: bloccatoDa ? 'II.d' : 'II.e',
+        percorso,
+        spettante: null,
+        ambiguo: false,
+        bloccatoDa,
+        candidati: anello?.candidati ?? [],
+      };
+    }
+    if (anello.ambiguo) {
+      return {
+        assente,
+        caso: bloccatoDa ? 'II.d' : 'II.bc',
+        percorso,
+        spettante: null,
+        ambiguo: true,
+        bloccatoDa,
+        candidati: anello.candidati,
+      };
+    }
+
+    const sostituto = anello.sostituto as string;
+    // Un ciclo (A sostituito da B, B sostituito da A) non deve far girare a vuoto.
+    if (visti.has(sostituto)) {
+      return { assente, caso: 'II.d', percorso, spettante: null, ambiguo: false, bloccatoDa, candidati: [] };
+    }
+    visti.add(sostituto);
+    percorso.push(sostituto);
+
+    const proprietario = proprietarioDi(sostituto);
+    if (proprietario === null) {
+      // Libero: al primo passo è l'Art. II.b/II.c, più avanti è la possibilità 2 dell'Art. II.d.
+      return {
+        assente,
+        caso: passo === 0 ? 'II.bc' : 'II.d',
+        percorso,
+        spettante: sostituto,
+        ambiguo: false,
+        bloccatoDa,
+        candidati: anello.candidati,
+      };
+    }
+
+    // È di un altro Team: Art. II.d, si prosegue col sostituto del sostituto.
+    if (bloccatoDa === null) bloccatoDa = proprietario;
+    corrente = sostituto;
+  }
+
+  return { assente, caso: 'II.d', percorso, spettante: null, ambiguo: false, bloccatoDa, candidati: [] };
+}

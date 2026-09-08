@@ -438,3 +438,46 @@ export interface PrezzoComponente {
   punti: number;
   prezzo: number;
 }
+
+// ─── Art. II: i piloti che non sono scesi in pista ───
+export type CasoArt2 = "II.bc" | "II.d" | "II.e";
+
+export interface Art2Rif {
+  id: string;
+  name: string;
+}
+
+interface Art2Base {
+  teamId: string;
+  teamName: string;
+  slot: string;
+  assente: Art2Rif;
+}
+
+/** Lo slot è già occupato da un altro: la sostituzione è stata registrata. */
+export interface Art2Risolto extends Art2Base {
+  stato: "risolto";
+  sostituto: Art2Rif;
+  race: number;
+  sprint: number;
+}
+
+export interface Art2Aperto extends Art2Base {
+  stato: "aperto";
+  caso: CasoArt2;
+  /** La catena: [assente, chi ha preso il suo posto, chi ha preso il posto di quello, ...]. */
+  percorso: Art2Rif[];
+  /** Il pilota che entra temporaneamente in squadra, o null se non ce n'è uno libero. */
+  spettante: (Art2Rif & { race: number; sprint: number }) | null;
+  ambiguo: boolean;
+  candidati: Art2Rif[];
+  /** Solo II.d: il Team che possiede il sostituto diretto, cioè perché non puoi prenderlo. */
+  bloccatoDa: string | null;
+}
+
+export type Art2Caso = Art2Aperto | Art2Risolto;
+
+export interface Art2Round {
+  round: { roundNo: number; code: string | null; name: string | null; scored: boolean };
+  casi: Art2Caso[];
+}

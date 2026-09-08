@@ -4,10 +4,13 @@ import { requireAuth } from '../middleware/auth';
 import { getCurrentSeasonId } from '../services/currentSeason';
 import {
   applicaIntervallo,
+  fondiContigui,
   sovrapposizioni,
   titolarePrecedente,
   Intervallo,
 } from '../services/rosterTimeline';
+import { componenteLibero, Assegnazione } from '../services/proprieta';
+import { assicuraComponentePilota } from '../services/riserve';
 
 /**
  * Legge la linea del tempo di uno slot, ci applica un intervallo e la riscrive.
@@ -34,7 +37,9 @@ async function riscriviSlot(
     from: r.from_round,
     to: r.to_round,
   }));
-  const nuova = applicaIntervallo(timeline, nuovo);
+  // Due tratti attaccati dello stesso componente sono un tratto solo: registrare la stessa
+  // sostituzione su R14 e poi su R15 deve lasciare una riga «R14-15», non due.
+  const nuova = fondiContigui(applicaIntervallo(timeline, nuovo));
 
   const problemi = sovrapposizioni(nuova);
   if (problemi.length > 0) return { error: problemi[0] };
@@ -51,6 +56,55 @@ async function riscriviSlot(
     }))
   );
   return error ? { error: error.message } : {};
+}
+
+/** Tutte le assegnazioni della stagione, nella forma pura che l'invariante si aspetta. */
+async function caricaAssegnazioni(seasonId: string): Promise<Assegnazione[]> {
+  const [{ data: comps }, { data: ass }] = await Promise.all([
+    supabase.from('components').select('id').eq('season_id', seasonId),
+    supabase.from('roster_assignments').select('fantasy_team_id, slot, component_id, from_round, to_round'),
+  ]);
+  const dellaStagione = new Set((comps ?? []).map((c) => c.id));
+  return (ass ?? [])
+    .filter((a) => dellaStagione.has(a.component_id))
+    .map((a) => ({
+      fantasyTeamId: a.fantasy_team_id,
+      slot: a.slot,
+      componentId: a.component_id,
+      from: a.from_round,
+      to: a.to_round,
+    }));
+}
+
+/**
+ * ART. II.d — «sostituzione con pilota appartenente a un altro Team: il Team Manager rimane
+ * effettivamente privo del pilota». Quindi non te lo puoi prendere: qui il divieto diventa
+ * un rifiuto, non un riquadro ambrato.
+ *
+ * ⚠️ Senza questo controllo il motore contava gli stessi punti a due squadre, perché risolve
+ * la rosa slot per slot e non sa che un pilota è uno solo (verificato: 6 punti di Lawson
+ * accreditati sia a Pio sia a zippo).
+ */
+async function guardiaProprieta(
+  seasonId: string,
+  componentId: string,
+  teamId: string,
+  da: number,
+  a: number | null
+): Promise<string | null> {
+  const occupato = componenteLibero(await caricaAssegnazioni(seasonId), componentId, da, a, teamId);
+  if (!occupato) return null;
+
+  const [{ data: team }, { data: comp }] = await Promise.all([
+    supabase.from('fantasy_teams').select('name').eq('id', occupato.fantasyTeamId).maybeSingle(),
+    supabase.from('components').select('name').eq('id', componentId).maybeSingle(),
+  ]);
+  const fine = occupato.to == null ? 'fine stagione' : `R${occupato.to}`;
+  return (
+    `Art. II.d: ${comp?.name ?? 'questo componente'} è di ${team?.name ?? 'un altro Team'} ` +
+    `(${occupato.slot}, da R${occupato.from} a ${fine}). Resti privo del pilota: hai diritto ` +
+    `al suo sostituto (possibilità 2), non a lui.`
+  );
 }
 
 export const rosterRouter = Router();
@@ -159,6 +213,12 @@ rosterRouter.post('/team/:teamId/transfer', async (req, res) => {
     res.status(400).json({ error: `Componente non valido per lo slot ${slot}` });
     return;
   }
+  const occupato = await guardiaProprieta(seasonId, componentId, teamId, fromRound as number, null);
+  if (occupato) {
+    res.status(409).json({ error: occupato, code: 'ART_II_D' });
+    return;
+  }
+
   // Trasferimento definitivo: il nuovo componente occupa lo slot da fromRound in poi.
   const { error } = await riscriviSlot(teamId, slot, {
     componentId,
@@ -252,9 +312,22 @@ rosterRouter.post('/team/:teamId/substitute', async (req, res) => {
     return;
   }
   const teamId = req.params.teamId;
-  const { slot, componentId, fromRound, toRound } = req.body as {
-    slot?: string; componentId?: string; fromRound?: number; toRound?: number | null;
+  const { slot, fromRound, toRound, driverId } = req.body as {
+    slot?: string; componentId?: string; fromRound?: number; toRound?: number | null; driverId?: string;
   };
+  let componentId = (req.body as { componentId?: string }).componentId;
+
+  // Si può indicare il sostituto come PILOTA invece che come componente: le riserve nascono
+  // come `drivers` e il pezzo, se manca, si crea qui. Chi chiama non deve sapere la differenza.
+  if (!componentId && driverId && SLOT_KIND[slot ?? ''] === 'pilota') {
+    const esito = await assicuraComponentePilota(seasonId, driverId);
+    if (esito.error || !esito.componentId) {
+      res.status(400).json({ error: esito.error ?? 'Pilota non utilizzabile come sostituto' });
+      return;
+    }
+    componentId = esito.componentId;
+  }
+
   if (!slot || !SLOT_KIND[slot] || !componentId || !Number.isInteger(fromRound) || (fromRound as number) < 1) {
     res.status(400).json({ error: 'Dati sostituzione non validi' });
     return;
@@ -285,6 +358,12 @@ rosterRouter.post('/team/:teamId/substitute', async (req, res) => {
   }
   if (originale.component_id === componentId) {
     res.status(400).json({ error: 'Il sostituto è già il titolare dello slot' });
+    return;
+  }
+
+  const vietato = await guardiaProprieta(seasonId, componentId, teamId, fromRound as number, toRound ?? null);
+  if (vietato) {
+    res.status(409).json({ error: vietato, code: 'ART_II_D' });
     return;
   }
 

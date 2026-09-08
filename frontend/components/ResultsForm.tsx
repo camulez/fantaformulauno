@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { clientFetch } from "@/lib/api";
 import { Btn, Field, Label, Note, Section, fieldCls, StickyBar } from "@/components/ui";
 import { LineupForm } from "@/components/LineupForm";
+import { Art2Panel } from "@/components/Art2Panel";
 import type { Driver, ReferenceData, RoundResults } from "@/lib/types";
 import { BoltIcon, CheckIcon } from "@/components/icons";
 
@@ -145,6 +146,9 @@ export function ResultsForm() {
           {/* Sostituzioni del weekend: si registra chi è sceso davvero in pista, così i
               punti costruttore vanno alla scuderia che ha schierato il pilota. */}
           <LineupForm roundNo={selected.round_no} />
+
+          {/* Compare solo se un pilota posseduto è rimasto a terra. */}
+          <Art2Panel roundNo={selected.round_no} />
 
           <div className="mb-4 mt-4">
             <Field label="Punto Pole (miglior tempo in Qualifying)">
