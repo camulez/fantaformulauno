@@ -5,7 +5,7 @@
 import { supabase } from '../db/supabase';
 import { DEFAULT_RULES, ScoringRules } from '../config/defaultRules';
 import { loadSimulatorPoints } from './simulatorPointsData';
-import { mergeLineups } from './lineups';
+import { formazioneEffettiva, organicoDiAnagrafica, RigaScritta } from './lineups';
 import {
   computeTeamRound,
   explainTeamRound,
@@ -48,7 +48,7 @@ async function loadReportData(seasonId: string) {
       supabase.from('rounds').select('id, round_no, code, name, status').eq('season_id', seasonId).order('round_no'),
       supabase.from('fantasy_teams').select('id, name, person_id').eq('season_id', seasonId),
       supabase.from('components').select('id, kind, name, ref_driver_id, ref_fia_team_id').eq('season_id', seasonId),
-      supabase.from('drivers').select('id, name, fia_team_id').eq('season_id', seasonId),
+      supabase.from('drivers').select('id, name, fia_team_id, is_reserve').eq('season_id', seasonId),
       supabase.from('fia_teams').select('id, name').eq('season_id', seasonId),
       supabase.from('roster_assignments').select('fantasy_team_id, slot, component_id, from_round, to_round'),
       supabase.from('session_results').select('round_id, driver_id, session, fia_points, deduction'),
@@ -65,14 +65,14 @@ async function loadReportData(seasonId: string) {
   const driverName = new Map<string, string>((drvR.data ?? []).map((d) => [d.id, d.name]));
   const fiaName = new Map<string, string>((fiaR.data ?? []).map((t) => [t.id, t.name]));
 
-  // lineup di fallback quando non ci sono round_lineups espliciti
-  const driversByTeam = new Map<string, string[]>();
-  for (const d of drvR.data ?? []) {
-    if (!d.fia_team_id) continue;
-    const arr = driversByTeam.get(d.fia_team_id) ?? [];
-    arr.push(d.id);
-    driversByTeam.set(d.fia_team_id, arr);
-  }
+  // Stessa regola del motore della classifica (`standings.ts`): organico di base senza riserve, e ogni
+  // formazione scritta vale finché non la si cambia. Se le due divergessero, report e classifica
+  // darebbero numeri diversi per la stessa gara.
+  const anagrafica = organicoDiAnagrafica(drvR.data ?? []);
+  const roundNoDi = new Map((roundsR.data ?? []).map((r) => [r.id, r.round_no]));
+  const righeScritte: RigaScritta[] = (lineupR.data ?? [])
+    .filter((l) => roundNoDi.has(l.round_id))
+    .map((l) => ({ round_no: roundNoDi.get(l.round_id)!, fia_team_id: l.fia_team_id, driver_id: l.driver_id }));
 
   const rawByRound = new Map<string, RoundRaw>();
   for (const r of scoredRounds) {
@@ -87,13 +87,7 @@ async function loadReportData(seasonId: string) {
       if (s.session === 'race') race[s.driver_id] = entry;
       else sprint[s.driver_id] = entry;
     }
-    // Organico effettivo: anagrafica, con SOLO le scuderie modificate sovrascritte.
-    // (Prima si buttava via l'anagrafica intera appena esisteva una riga: bastava una
-    // sostituzione per lasciare tutte le altre scuderie senza piloti e senza punti.)
-    const lineup = mergeLineups(
-      Object.fromEntries(driversByTeam),
-      (lineupR.data ?? []).filter((l) => l.round_id === r.id)
-    );
+    const lineup = formazioneEffettiva(anagrafica, righeScritte, r.round_no).lineup;
     const pole = (poleR.data ?? []).find((p) => p.round_id === r.id);
     rawByRound.set(r.id, { race, sprint, lineup, poleDriverId: pole?.pole_driver_id ?? null });
   }

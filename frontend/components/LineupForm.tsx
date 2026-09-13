@@ -14,8 +14,13 @@ import type { LineupDriver, RoundLineups } from "@/lib/types";
  * devono contare per Red Bull, non per Racing Bulls.
  *
  * Chiusa di default: nel 95% dei GP non si tocca, e non deve rubare spazio ai risultati.
+ *
+ * ⚠️ La formazione SI PORTA AVANTI: vale dalla gara in cui la scrivi finché non la cambi. Prima valeva
+ * una gara sola, e a Madrid (R16) — dove non era stata riscritta — Lawson era tornato in silenzio in
+ * Racing Bulls. Per questo ogni scuderia dice da dove viene («come R15»), e l'avviso dei punti senza
+ * scuderia resta visibile anche a sezione chiusa: è il segnale che un titolare è rientrato.
  */
-export function LineupForm({ roundNo }: { roundNo: number }) {
+export function LineupForm({ roundNo, versione = 0 }: { roundNo: number; versione?: number }) {
   const [data, setData] = useState<RoundLineups | null>(null);
   const [sel, setSel] = useState<Record<string, string[]>>({});
   const [aperta, setAperta] = useState(false);
@@ -42,7 +47,7 @@ export function LineupForm({ roundNo }: { roundNo: number }) {
     setMsg(null);
     setError(null);
     carica();
-  }, [carica]);
+  }, [carica, versione]);
 
   if (!data) return null;
 
@@ -50,6 +55,23 @@ export function LineupForm({ roundNo }: { roundNo: number }) {
   const uguali = (a: string[] = [], b: string[] = []) =>
     a.length === b.length && [...a].sort().join() === [...b].sort().join();
   const modificate = data.teams.filter((t) => !uguali(t.abituale, sel[t.fiaTeamId] ?? []));
+
+  /** Da dove viene la formazione salvata di una scuderia; null se la si sta cambiando adesso. */
+  const provenienza = (t: (typeof data.teams)[number]): string | null => {
+    if (!uguali(t.effettiva, sel[t.fiaTeamId] ?? [])) return "da salvare";
+    if (t.scrittaQui) return "scritta qui";
+    if (t.ereditataDa !== null) return `come R${t.ereditataDa}`;
+    return null;
+  };
+  const riassunto = (() => {
+    if (modificate.length === 0) return "Tutte le scuderie con l'organico abituale";
+    const gruppi = new Map<string, string[]>();
+    for (const t of modificate) {
+      const k = provenienza(t) ?? "";
+      gruppi.set(k, [...(gruppi.get(k) ?? []), t.name]);
+    }
+    return [...gruppi.entries()].map(([k, nomi]) => `${nomi.join(", ")}${k ? ` · ${k}` : ""}`).join(" — ");
+  })();
 
   /** Un pilota può correre per una sola scuderia: qui si tolgono le scelte in conflitto. */
   function scegli(teamId: string, indice: number, driverId: string) {
@@ -87,8 +109,8 @@ export function LineupForm({ roundNo }: { roundNo: number }) {
       });
       setMsg(
         r.scuderieModificate === 0
-          ? "Formazione riportata agli organici abituali"
-          : `Salvato · ${r.scuderieModificate} ${r.scuderieModificate === 1 ? "scuderia modificata" : "scuderie modificate"}`
+          ? "Nessuna differenza dalla gara prima: questa gara la eredita"
+          : `Salvato · ${r.scuderieModificate} ${r.scuderieModificate === 1 ? "scuderia cambiata" : "scuderie cambiate"} da questa gara in poi`
       );
       await carica();
     } catch (e) {
@@ -123,16 +145,25 @@ export function LineupForm({ roundNo }: { roundNo: number }) {
       <button onClick={() => setAperta((a) => !a)} className="flex w-full items-center justify-between gap-3 text-left">
         <div className="min-w-0">
           <Label>Formazione della gara</Label>
-          <p className="note mt-0.5">
-            {modificate.length === 0
-              ? "Tutte le scuderie con l'organico abituale"
-              : `${modificate.length} ${modificate.length === 1 ? "scuderia modificata" : "scuderie modificate"}: ${modificate.map((t) => t.name).join(", ")}`}
-          </p>
+          <p className="note mt-0.5">{riassunto}</p>
         </div>
         <span className={`num shrink-0 text-xs ${modificate.length ? "text-acid" : "text-bone-dim"}`}>
           {aperta ? "chiudi" : "apri"}
         </span>
       </button>
+
+      {data.senzaScuderia.length > 0 && (
+        <div className="mt-3 rounded-lg border border-red/50 bg-red/5 px-3 py-2">
+          <Label className="text-red">Formazione da aggiornare</Label>
+          {data.senzaScuderia.map((s) => (
+            <p key={s.id} className="note mt-1">
+              <span className="text-bone">{s.name}</span> ha fatto {s.punti} pt ma in questa formazione non corre
+              per nessuna scuderia: i suoi punti costruttore non vanno a nessuno. Di solito vuol dire che è
+              rientrato e si sta ancora ereditando il suo sostituto.
+            </p>
+          ))}
+        </div>
+      )}
 
       {aperta && (
         <div className="mt-3 border-t border-line/60 pt-3">
@@ -141,6 +172,11 @@ export function LineupForm({ roundNo }: { roundNo: number }) {
             come <span className="text-bone">pilota</span> restano comunque a chi lo possiede: qui
             si decide solo per quale <span className="text-bone">costruttore</span> contano.
             {data.round.hasSprint && " Vale per tutto il weekend, Sprint compreso."}
+          </p>
+          <p className="note mb-3">
+            Una formazione <span className="text-bone">vale dalla gara in cui la scrivi finché non la cambi</span>:
+            non va riscritta a ogni GP. Quando il titolare rientra, riporta la scuderia all&apos;abituale nella
+            gara del rientro.
           </p>
 
           <div className="space-y-2">
@@ -155,13 +191,16 @@ export function LineupForm({ roundNo }: { roundNo: number }) {
                   <div className="flex items-baseline justify-between gap-2">
                     <p className={`text-xs font-semibold uppercase tracking-wide ${cambiata ? "text-acid" : "text-bone"}`}>
                       {t.name}
+                      {cambiata && provenienza(t) && (
+                        <span className="note ml-2 normal-case tracking-normal">{provenienza(t)}</span>
+                      )}
                     </p>
                     {cambiata && (
                       <button
                         onClick={() => setSel((p) => ({ ...p, [t.fiaTeamId]: [...t.abituale] }))}
                         className="label transition-colors hover:text-acid"
                       >
-                        ripristina
+                        torna all&apos;abituale
                       </button>
                     )}
                   </div>

@@ -11,6 +11,11 @@ import {
   catenaSostituzioni,
   sostitutoSpettante,
   assentiDalRound,
+  organicoDiAnagrafica,
+  formazioneEffettiva,
+  formazioneEreditata,
+  puntiSenzaScuderia,
+  RigaScritta,
   Lineup,
   LineupRow,
 } from './lineups';
@@ -223,6 +228,90 @@ const proprietarioDi = (d: string) => proprietari[d] ?? null;
   const anelli = catenaSostituzioni(anagrafica, effettivi);
   check('la catena conosce comunque il posto lasciato da Lawson',
     anelli.some((a) => a.assente === 'lawson' && a.sostituto === 'tsunoda'));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// La formazione si porta avanti — il baco di Madrid (R16, 2026)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Formazioni scritte a Olanda (R14) e Monza (R15), NON a Madrid (R16).
+const scambio = (round_no: number): RigaScritta[] => [
+  { round_no, fia_team_id: 'redbull', driver_id: 'verstappen' },
+  { round_no, fia_team_id: 'redbull', driver_id: 'lawson' },
+  { round_no, fia_team_id: 'racingbulls', driver_id: 'lindblad' },
+  { round_no, fia_team_id: 'racingbulls', driver_id: 'tsunoda' },
+];
+const scritte: RigaScritta[] = [...scambio(14), ...scambio(15)];
+
+// ── 13. Le riserve non fanno parte dell'organico di base ──
+{
+  const org = organicoDiAnagrafica([
+    { id: 'lawson', fia_team_id: 'racingbulls', is_reserve: false },
+    { id: 'lindblad', fia_team_id: 'racingbulls', is_reserve: false },
+    { id: 'tsunoda', fia_team_id: 'racingbulls', is_reserve: true },
+    { id: 'senzascuderia', fia_team_id: null, is_reserve: false },
+  ]);
+  check('Racing Bulls ha DUE piloti di base, non tre', org.racingbulls?.length === 2, String(org.racingbulls));
+  check('la riserva non è nell\'organico di base', !org.racingbulls.includes('tsunoda'));
+}
+
+// ── 14. IL BACO DI MADRID: R16 eredita la formazione di Monza ──
+{
+  const r16 = formazioneEffettiva(anagrafica, scritte, 16);
+  check('MADRID: Lawson corre per Red Bull', r16.lineup.redbull?.sort().join() === 'lawson,verstappen', String(r16.lineup.redbull));
+  check('MADRID: Racing Bulls = Lindblad + Tsunoda', r16.lineup.racingbulls?.sort().join() === 'lindblad,tsunoda', String(r16.lineup.racingbulls));
+  check('la formazione dice da dove viene: R15', r16.da.redbull === 15, String(r16.da.redbull));
+  check('le scuderie mai toccate restano all\'anagrafica', r16.lineup.ferrari?.join() === 'leclerc,hamilton');
+  check('e non dicono di venire da una gara', r16.da.ferrari === undefined);
+}
+
+// ── 15. Le gare PRIMA dello scambio non cambiano ──
+{
+  const r13 = formazioneEffettiva(anagrafica, scritte, 13);
+  check('R13 resta all\'anagrafica: Hadjar in Red Bull', r13.lineup.redbull?.join() === 'verstappen,hadjar', String(r13.lineup.redbull));
+  check('R13 non eredita da gare successive', Object.keys(r13.da).length === 0);
+}
+
+// ── 16. Il rientro si scrive, e da lì si eredita il rientro ──
+{
+  const conRientro: RigaScritta[] = [
+    ...scritte,
+    { round_no: 20, fia_team_id: 'redbull', driver_id: 'verstappen' },
+    { round_no: 20, fia_team_id: 'redbull', driver_id: 'hadjar' },
+    { round_no: 20, fia_team_id: 'racingbulls', driver_id: 'lawson' },
+    { round_no: 20, fia_team_id: 'racingbulls', driver_id: 'lindblad' },
+  ];
+  check('R19 ha ancora Lawson in Red Bull', formazioneEffettiva(anagrafica, conRientro, 19).lineup.redbull.includes('lawson'));
+  check('R21 eredita il rientro di Hadjar', formazioneEffettiva(anagrafica, conRientro, 21).lineup.redbull.includes('hadjar'));
+  check('R21 viene da R20', formazioneEffettiva(anagrafica, conRientro, 21).da.redbull === 20);
+}
+
+// ── 17. L'eredità è per scuderia: scrivere la Ferrari non azzera Red Bull ──
+{
+  const soloFerrari: RigaScritta[] = [
+    ...scritte,
+    { round_no: 18, fia_team_id: 'ferrari', driver_id: 'leclerc' },
+    { round_no: 18, fia_team_id: 'ferrari', driver_id: 'bearman' },
+  ];
+  const r18 = formazioneEffettiva(anagrafica, soloFerrari, 18);
+  check('a R18 Red Bull eredita ancora da R15', r18.da.redbull === 15 && r18.lineup.redbull.includes('lawson'));
+  check('a R18 la Ferrari è quella scritta lì', r18.da.ferrari === 18 && r18.lineup.ferrari.includes('bearman'));
+}
+
+// ── 18. L'ereditata guarda SOLO le gare prima: è il confronto quando si salva ──
+{
+  check('R14 non eredita niente: prima c\'è solo l\'anagrafica',
+    formazioneEreditata(anagrafica, scritte, 14).lineup.redbull.join() === 'verstappen,hadjar');
+  check('R15 eredita da R14', formazioneEreditata(anagrafica, scritte, 15).da.redbull === 14);
+  check('R16 eredita da R15', formazioneEreditata(anagrafica, scritte, 16).da.redbull === 15);
+}
+
+// ── 19. Il rischio opposto: il titolare rientra e nessuno aggiorna la formazione ──
+{
+  const r20 = formazioneEffettiva(anagrafica, scritte, 20).lineup; // eredita ancora Lawson in Red Bull
+  const orfani = puntiSenzaScuderia(r20, ['verstappen', 'hadjar', 'lindblad']);
+  check('HADJAR CON PUNTI MA IN NESSUNA SCUDERIA VIENE SEGNALATO', orfani.join() === 'hadjar', orfani.join());
+  check('chi è schierato non viene segnalato', puntiSenzaScuderia(r20, ['verstappen', 'lawson']).length === 0);
 }
 
 console.log(`\nFormazione di gara e Art. II: ${pass} pass, ${fail} fail`);

@@ -32,6 +32,88 @@ export function mergeLineups(predefiniti: Lineup, scritti: LineupRow[]): Lineup 
   return { ...predefiniti, ...modificate };
 }
 
+// ─── Da quale gara viene una formazione ───
+//
+// ⚠️ Il baco di Madrid (R16, 2026). Una formazione valeva UNA gara sola: Lawson in Red Bull era scritto
+// in Olanda e a Monza, non a Madrid, e a Madrid l'app è tornata in silenzio all'anagrafica — Lawson di
+// nuovo in Racing Bulls. Quattro squadre con i punti sbagliati (telaio, motore, sponsor e benzina di
+// entrambe le scuderie) e nessun avviso. Una sostituzione che dura più GP andava riscritta a ogni gara.
+//
+// Ora la formazione di una scuderia SI PORTA AVANTI: vale quella scritta nell'ultima gara in cui è stata
+// cambiata, finché non la si cambia di nuovo. Il rischio opposto (il titolare rientra e nessuno aggiorna)
+// lo copre `puntiSenzaScuderia`, che se ne accorge dai risultati.
+
+export interface PilotaAnagrafica {
+  id: string;
+  fia_team_id: string | null;
+  is_reserve: boolean;
+}
+
+/**
+ * Organico di inizio stagione, scuderia per scuderia. **Senza riserve**: una riserva entra in pista solo
+ * se è schierata in una formazione. Prima `standings.ts` e `report.ts` le includevano (e `routes/lineups.ts`
+ * no): per il motore, in una gara senza formazione, Racing Bulls aveva tre piloti.
+ */
+export function organicoDiAnagrafica(piloti: PilotaAnagrafica[]): Lineup {
+  const per: Lineup = {};
+  for (const d of piloti) {
+    if (d.fia_team_id && !d.is_reserve) (per[d.fia_team_id] ??= []).push(d.id);
+  }
+  return per;
+}
+
+export interface RigaScritta extends LineupRow {
+  round_no: number;
+}
+
+export interface FormazioneCalcolata {
+  lineup: Lineup;
+  /** Per le scuderie che vengono da una formazione scritta: il round in cui è stata scritta. */
+  da: Record<string, number>;
+}
+
+/** L'ultima formazione scritta per ogni scuderia in un round che rispetta `ammesso`. */
+function ultimeScritte(righe: RigaScritta[], ammesso: (roundNo: number) => boolean): FormazioneCalcolata {
+  const ultimoRound: Record<string, number> = {};
+  for (const r of righe) {
+    if (!ammesso(r.round_no)) continue;
+    if (ultimoRound[r.fia_team_id] === undefined || r.round_no > ultimoRound[r.fia_team_id]) {
+      ultimoRound[r.fia_team_id] = r.round_no;
+    }
+  }
+  const lineup: Lineup = {};
+  for (const r of righe) {
+    if (ultimoRound[r.fia_team_id] === r.round_no) (lineup[r.fia_team_id] ??= []).push(r.driver_id);
+  }
+  return { lineup, da: ultimoRound };
+}
+
+/** Organico effettivo al round `roundNo`: le formazioni scritte fino a quel round, sopra l'anagrafica. */
+export function formazioneEffettiva(anagrafica: Lineup, righe: RigaScritta[], roundNo: number): FormazioneCalcolata {
+  const scritte = ultimeScritte(righe, (n) => n <= roundNo);
+  return { lineup: { ...anagrafica, ...scritte.lineup }, da: scritte.da };
+}
+
+/**
+ * Cosa erediterebbe il round `roundNo` se non ci si scrivesse niente: le formazioni dei round PRIMA.
+ * È il termine di confronto quando si salva — scrivere «Hadjar rientra» è una riga vera, perché
+ * altrimenti si continuerebbe a ereditare Lawson.
+ */
+export function formazioneEreditata(anagrafica: Lineup, righe: RigaScritta[], roundNo: number): FormazioneCalcolata {
+  const scritte = ultimeScritte(righe, (n) => n < roundNo);
+  return { lineup: { ...anagrafica, ...scritte.lineup }, da: scritte.da };
+}
+
+/**
+ * Piloti con punti in un round che non risultano schierati da nessuna scuderia. È impossibile nella
+ * realtà, quindi è sempre un segno che la formazione è rimasta indietro — di solito un titolare
+ * rientrato mentre si continuava a ereditare il sostituto. I suoi punti costruttore non vanno a nessuno.
+ */
+export function puntiSenzaScuderia(effettivi: Lineup, conPunti: string[]): string[] {
+  const schierati = new Set(Object.values(effettivi).flat());
+  return [...new Set(conPunti)].filter((d) => !schierati.has(d));
+}
+
 export interface ProblemaFormazione {
   tipo: 'pilota-doppio' | 'troppi-piloti';
   messaggio: string;

@@ -414,12 +414,18 @@ export interface LineupTeam {
   /** Chi corre davvero in questo round. */
   effettiva: string[];
   modificata: boolean;
+  /** La formazione di questa scuderia è scritta proprio in questo round. */
+  scrittaQui: boolean;
+  /** Oppure viene da una gara precedente: una formazione vale finché non la si cambia. */
+  ereditataDa: number | null;
 }
 
 export interface RoundLineups {
   round: { roundNo: number; code: string | null; name: string | null; hasSprint: boolean; scored: boolean };
   drivers: LineupDriver[];
   teams: LineupTeam[];
+  /** Piloti con punti in questo round che non corrono per nessuna scuderia: formazione rimasta indietro. */
+  senzaScuderia: { id: string; name: string; punti: number }[];
 }
 
 // ─── Art. II: sostituzioni piloti ───

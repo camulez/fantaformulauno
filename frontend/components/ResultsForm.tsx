@@ -21,6 +21,8 @@ export function ResultsForm() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Cresce a ogni salvataggio: la formazione ricontrolla i punti senza scuderia sui risultati nuovi.
+  const [versione, setVersione] = useState(0);
 
   useEffect(() => {
     clientFetch<ReferenceData>("/reference/current")
@@ -81,6 +83,7 @@ export function ResultsForm() {
         body: JSON.stringify({ results, poleDriverId: pole || null, markScored }),
       });
       setMsg(`Salvato · ${res.saved} risultati`);
+      setVersione((v) => v + 1);
       const fresh = await clientFetch<ReferenceData>("/reference/current");
       setRef(fresh);
     } catch (e) {
@@ -145,7 +148,7 @@ export function ResultsForm() {
 
           {/* Sostituzioni del weekend: si registra chi è sceso davvero in pista, così i
               punti costruttore vanno alla scuderia che ha schierato il pilota. */}
-          <LineupForm roundNo={selected.round_no} />
+          <LineupForm roundNo={selected.round_no} versione={versione} />
 
           {/* Compare solo se un pilota posseduto è rimasto a terra. */}
           <Art2Panel roundNo={selected.round_no} />

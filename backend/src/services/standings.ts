@@ -4,7 +4,7 @@ import { supabase } from '../db/supabase';
 import { DEFAULT_RULES, ScoringRules } from '../config/defaultRules';
 import { computeTeamRound, RoundRaw, RosterSlot, TeamRoster } from './scoring';
 import { loadSimulatorPoints } from './simulatorPointsData';
-import { mergeLineups } from './lineups';
+import { formazioneEffettiva, organicoDiAnagrafica, RigaScritta } from './lineups';
 
 export interface TeamStanding {
   teamId: string;
@@ -63,7 +63,7 @@ export async function computeStandings(seasonId: string): Promise<StandingsResul
     supabase.from('rounds').select('id, round_no, code, status').eq('season_id', seasonId).order('round_no'),
     supabase.from('fantasy_teams').select('id, name').eq('season_id', seasonId),
     supabase.from('components').select('id, kind, ref_driver_id, ref_fia_team_id').eq('season_id', seasonId),
-    supabase.from('drivers').select('id, fia_team_id').eq('season_id', seasonId),
+    supabase.from('drivers').select('id, fia_team_id, is_reserve').eq('season_id', seasonId),
     supabase.from('roster_assignments').select('fantasy_team_id, slot, component_id, from_round, to_round'),
     supabase.from('session_results').select('round_id, driver_id, session, fia_points, deduction'),
     supabase.from('poles').select('round_id, pole_driver_id'),
@@ -78,14 +78,13 @@ export async function computeStandings(seasonId: string): Promise<StandingsResul
   const teams = teamsR.data ?? [];
   const compById = new Map<string, Comp>((compR.data ?? []).map((c) => [c.id, c as Comp]));
 
-  // lineup di fallback: piloti per scuderia (drivers.fia_team_id)
-  const driversByTeam = new Map<string, string[]>();
-  for (const d of drvR.data ?? []) {
-    if (!d.fia_team_id) continue;
-    const arr = driversByTeam.get(d.fia_team_id) ?? [];
-    arr.push(d.id);
-    driversByTeam.set(d.fia_team_id, arr);
-  }
+  // Organico di base (senza riserve) e formazioni scritte, con il loro round: una formazione vale
+  // dalla gara in cui è scritta finché non la si cambia (vedi `formazioneEffettiva`).
+  const anagrafica = organicoDiAnagrafica(drvR.data ?? []);
+  const roundNoDi = new Map((roundsR.data ?? []).map((r) => [r.id, r.round_no]));
+  const righeScritte: RigaScritta[] = (lineupR.data ?? [])
+    .filter((l) => roundNoDi.has(l.round_id))
+    .map((l) => ({ round_no: roundNoDi.get(l.round_id)!, fia_team_id: l.fia_team_id, driver_id: l.driver_id }));
 
   // RoundRaw per ciascun round disputato
   const rawByRound = new Map<string, RoundRaw>();
@@ -98,13 +97,10 @@ export async function computeStandings(seasonId: string): Promise<StandingsResul
       if (s.session === 'race') race[s.driver_id] = entry;
       else sprint[s.driver_id] = entry;
     }
-    // Organico effettivo: anagrafica, con SOLO le scuderie modificate sovrascritte.
-    // (Prima si buttava via l'anagrafica intera appena esisteva una riga: bastava una
-    // sostituzione per lasciare tutte le altre scuderie senza piloti e senza punti.)
-    const lineup = mergeLineups(
-      Object.fromEntries(driversByTeam),
-      (lineupR.data ?? []).filter((l) => l.round_id === r.id)
-    );
+    // Organico effettivo: l'ultima formazione scritta di ogni scuderia fino a questo round, sopra
+    // l'anagrafica. ⚠️ Prima valeva solo la formazione di QUESTO round: a Madrid (R16) non era stata
+    // riscritta e Lawson era tornato in silenzio in Racing Bulls.
+    const lineup = formazioneEffettiva(anagrafica, righeScritte, r.round_no).lineup;
     const pole = (poleR.data ?? []).find((p) => p.round_id === r.id);
     rawByRound.set(r.id, { race, sprint, lineup, poleDriverId: pole?.pole_driver_id ?? null });
   }
