@@ -1,5 +1,15 @@
 // GATE di validazione del motore sui dati reali R11 (estratti dal PDF, somme già verificate).
 // Esegui: npx tsx src/services/gate.check.ts
+//
+// ⚠️ I dati di `r11data.json` vengono dal foglio ufficiale e il foglio PUÒ CAMBIARE. Il 05/10/2026,
+// confrontando l'app con «R17 2026 Official fantaformulauno world championship.pdf», sono emerse due
+// correzioni fatte nel foglio dopo luglio e mai arrivate qui:
+//   · MONACO (R08): Gasly era 3º (15 pt), nel foglio nuovo è 7º (6 pt); Hadjar, Piastri, Lawson e
+//     Lindblad salgono di un posto. I 9 punti tolti a Gasly sono esattamente i 9 redistribuiti:
+//     la somma dei costruttori non cambia (−2 −3 −4 +9 = 0), è una riclassifica, non punti persi.
+//   · SILVERSTONE (R11): la pole, prima assente, è di Antonelli.
+// Attese aggiornate di conseguenza: +2 Anzo, +4 Marchese, +8 Pio (5 da Monaco + 3 di pole),
+// +5 zippo, +3 Scuderia. Se un domani il foglio cambia ancora, è il foglio ad avere ragione.
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { DEFAULT_RULES, ScoringRules } from '../config/defaultRules';
@@ -66,16 +76,16 @@ interface Fantasy {
 
 // Roster delle 6 squadre (PDF pag.2). Anzo/zippo/Marchese/Pio/Scuderia = roster pieno.
 const TEAMS: Fantasy[] = [
-  { name: 'Anzo', expected: 778, roster: { telaioTeamId: 'Mercedes', motoreWorksTeamId: 'Ferrari', p1DriverId: 'Oscar Piastri', p2DriverId: 'Esteban Ocon', sponsorTeamId: 'Haas F1 Team', benzinaTeamId: 'Mercedes' } },
-  { name: 'Marchese', expected: 285, roster: { telaioTeamId: 'Haas F1 Team', motoreWorksTeamId: 'Racing Bulls', p1DriverId: 'Carlos Sainz', p2DriverId: 'Lando Norris', sponsorTeamId: 'McLaren', benzinaTeamId: 'McLaren' } },
-  { name: 'Pio', expected: 634, roster: { telaioTeamId: 'Ferrari', motoreWorksTeamId: 'Red Bull Racing', p1DriverId: 'Andrea Kimi Antonelli', p2DriverId: 'Liam Lawson', sponsorTeamId: 'Audi', benzinaTeamId: 'Cadillac' } },
-  { name: 'zippo', expected: 558, roster: { telaioTeamId: 'McLaren', motoreWorksTeamId: 'Williams', p1DriverId: 'George Russel', p2DriverId: 'Isack Hadjar', sponsorTeamId: 'Mercedes', benzinaTeamId: 'Ferrari' } },
+  { name: 'Anzo', expected: 780, roster: { telaioTeamId: 'Mercedes', motoreWorksTeamId: 'Ferrari', p1DriverId: 'Oscar Piastri', p2DriverId: 'Esteban Ocon', sponsorTeamId: 'Haas F1 Team', benzinaTeamId: 'Mercedes' } },
+  { name: 'Marchese', expected: 289, roster: { telaioTeamId: 'Haas F1 Team', motoreWorksTeamId: 'Racing Bulls', p1DriverId: 'Carlos Sainz', p2DriverId: 'Lando Norris', sponsorTeamId: 'McLaren', benzinaTeamId: 'McLaren' } },
+  { name: 'Pio', expected: 642, roster: { telaioTeamId: 'Ferrari', motoreWorksTeamId: 'Red Bull Racing', p1DriverId: 'Andrea Kimi Antonelli', p2DriverId: 'Liam Lawson', sponsorTeamId: 'Audi', benzinaTeamId: 'Cadillac' } },
+  { name: 'zippo', expected: 563, roster: { telaioTeamId: 'McLaren', motoreWorksTeamId: 'Williams', p1DriverId: 'George Russel', p2DriverId: 'Isack Hadjar', sponsorTeamId: 'Mercedes', benzinaTeamId: 'Ferrari' } },
 ];
 
 // Scuderia Da Silva: DRS sul Motore (Mercedes) al R02.
 const SCUDERIA: Fantasy = {
   name: 'Scuderia',
-  expected: 759,
+  expected: 762,
   roster: { telaioTeamId: 'Red Bull Racing', motoreWorksTeamId: 'Mercedes', p1DriverId: 'Charles Leclerc', p2DriverId: 'Olivier Bearman', sponsorTeamId: 'Alpine', benzinaTeamId: 'Red Bull Racing' },
   drs: { round: 2, slot: 'motore' },
 };
