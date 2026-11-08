@@ -148,5 +148,32 @@ const rosa = (t: string, m: string, p1: string, p2: string, s: string, b: string
   check('e chi insegue è fuori anche per un punto', esito.squadre[0].fuori);
 }
 
+// ── 9. ART. II: UN PILOTA FUORI VIENE SOSTITUITO, NON VALE ZERO ──
+// Caso vero 2026: Ocon è fuori e in Haas lo rimpiazza ogni volta qualcun altro. Dare zero a
+// quello slot sottovaluterebbe l'inseguitore — e sottovalutarlo è l'errore pericoloso, perché
+// potrebbe farlo dichiarare fuori quando non lo è.
+{
+  const leader = rosa('C', 'D', 'C1', 'D1', 'C', 'D');
+  const conPilota = rosa('A', 'B', 'A1', 'B1', 'A', 'B');
+  const conAssente = rosa('A', 'B', 'A1', 'FUORI', 'A', 'B'); // 'FUORI' non è in pista
+
+  const normale = massimoVantaggioRound(round(), conPilota, leader, REGOLE);
+  const assente = massimoVantaggioRound(round(), conAssente, leader, REGOLE);
+  check('un pilota fuori non azzera lo slot', assente > 0 && assente >= normale - 1, `${assente} vs ${normale}`);
+
+  // Deve scegliere il sostituto migliore: non può fare peggio del miglior rimpiazzo possibile.
+  const migliorRimpiazzo = Math.max(
+    ...['A2', 'B1', 'B2', 'E1', 'K2'].map((d) =>
+      massimoVantaggioRound(round(), { ...conAssente, p2: d }, leader, REGOLE)
+    )
+  );
+  check('sceglie il sostituto migliore', assente >= migliorRimpiazzo, `${assente} vs ${migliorRimpiazzo}`);
+
+  // Un pilota del LEADER fuori, invece, resta a zero: è già il caso peggiore per lui.
+  const leaderAssente = rosa('C', 'D', 'C1', 'FUORI', 'C', 'D');
+  const v = massimoVantaggioRound(round(), conPilota, leaderAssente, REGOLE);
+  check('se manca un pilota al leader, il rivale non ci perde', v >= normale, `${v} vs ${normale}`);
+}
+
 console.log(`\nCorsa al titolo: ${pass} pass, ${fail} fail`);
 process.exit(fail === 0 ? 0 : 1);

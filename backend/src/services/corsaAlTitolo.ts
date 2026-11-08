@@ -116,6 +116,29 @@ export function massimoVantaggioRound(
   doppia?: SlotRosa
 ): number {
   const inPista = [...new Set(Object.values(round.lineup).flat())];
+
+  // ⚠️ ART. II — un pilota posseduto che NON è in pista viene sostituito, e il sostituto
+  // «diviene temporaneamente parte del Team». Dare zero a quello slot sarebbe sbagliato e,
+  // peggio, NON prudente: sottovaluterebbe l'inseguitore. Qui si prova ogni pilota dello
+  // schieramento come sostituto e si tiene il caso migliore per lui.
+  // (Caso vero 2026: Ocon è fuori e in Haas lo rimpiazza di volta in volta qualcun altro.)
+  // Si ammette QUALSIASI pilota dello schieramento, anche uno già di un altro Team che
+  // l'Art. II.d vieterebbe: è una sovrastima voluta, e la sovrastima sta dalla parte giusta.
+  const mancanti = (['p1', 'p2'] as const).filter((k) => !inPista.includes(rosaRivale[k]));
+  if (mancanti.length > 0) {
+    const chiave = mancanti[0];
+    let migliore = Number.NEGATIVE_INFINITY;
+    for (const sostituto of inPista) {
+      const conSostituto = { ...rosaRivale, [chiave]: sostituto };
+      // Se mancano entrambi, il secondo si limita con il suo massimo teorico: sovrastima,
+      // quindi resta dalla parte prudente.
+      const v = massimoVantaggioRound(round, conSostituto, rosaLeader, regole, doppia)
+        + (mancanti.length > 1 ? regole.raceScale[0] + (round.hasSprint ? regole.sprintScale[0] : 0) : 0);
+      if (v > migliore) migliore = v;
+    }
+    return migliore;
+  }
+
   const diScuderia = (id: string) => round.lineup[id] ?? [];
   const molt = (s: SlotRosa) => (s === doppia ? regole.drsMultiplier : 1);
 
