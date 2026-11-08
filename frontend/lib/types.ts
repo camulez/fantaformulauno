@@ -487,3 +487,25 @@ export interface Art2Round {
   round: { roundNo: number; code: string | null; name: string | null; scored: boolean };
   casi: Art2Caso[];
 }
+
+// ─── Corsa al titolo: chi può ancora vincere ───
+export interface CorsaSquadra {
+  teamId: string;
+  name: string;
+  punti: number;
+  distacco: number;
+  /** Il massimo che può ancora guadagnare SUL LEADER, non in assoluto. */
+  massimoRecuperabile: number;
+  fuori: boolean;
+  /** Al massimo può pareggiare: deciderebbero gli spareggi. */
+  soloPari: boolean;
+}
+
+export interface CorsaAlTitolo {
+  leaderId: string;
+  leaderName: string;
+  roundRimasti: number;
+  roundsRimasti: { roundNo: number; code: string | null }[];
+  campioneMatematico: boolean;
+  squadre: CorsaSquadra[];
+}

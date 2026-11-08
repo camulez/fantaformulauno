@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { getCurrentSeasonId } from '../services/currentSeason';
 import { computeStandings, getTeamRoster } from '../services/standings';
+import { caricaCorsaAlTitolo } from '../services/corsaAlTitoloDati';
 
 export const standingsRouter = Router();
 standingsRouter.use(requireAuth);
@@ -17,6 +18,25 @@ standingsRouter.get('/current', async (_req, res) => {
 });
 
 // Dettaglio di una squadra: standing + posizione + roster corrente.
+/**
+ * Chi può ancora vincere il campionato. Non è «quanti punti restano in palio»: è il massimo
+ * che ogni inseguitore può STACCARE il leader, gara per gara, tenendo conto che i dieci
+ * punteggi si assegnano una volta sola e che le rose si incrociano.
+ */
+standingsRouter.get('/corsa-al-titolo', async (_req, res) => {
+  const seasonId = await getCurrentSeasonId();
+  if (!seasonId) {
+    res.status(404).json({ error: 'Nessuna stagione' });
+    return;
+  }
+  const esito = await caricaCorsaAlTitolo(seasonId);
+  if (!esito) {
+    res.status(404).json({ error: 'Dati insufficienti' });
+    return;
+  }
+  res.json(esito);
+});
+
 standingsRouter.get('/team/:teamId', async (req, res) => {
   const seasonId = await getCurrentSeasonId();
   if (!seasonId) {

@@ -1,8 +1,9 @@
 import Link from "next/link";
+import { unstable_rethrow } from "next/navigation";
 import { serverFetch } from "@/lib/api.server";
 import { BottomNav } from "@/components/BottomNav";
 import { Screen, Main, Card, Label, Empty, Btn } from "@/components/ui";
-import type { Me, SeasonInfo, StandingsResult } from "@/lib/types";
+import type { CorsaAlTitolo, Me, SeasonInfo, StandingsResult } from "@/lib/types";
 
 /**
  * Registro vetrina. Composizione non lineare: il leader non è una riga come le altre,
@@ -11,10 +12,20 @@ import type { Me, SeasonInfo, StandingsResult } from "@/lib/types";
 export default async function ClassificaPage() {
   await serverFetch<Me>("/auth/me"); // gate
 
-  const [standings, season] = await Promise.all([
+  // ⚠️ `serverFetch` segnala il 401 LANCIANDO un redirect: un `catch` che lo ingoia
+  // trasformerebbe una sessione scaduta in una pagina senza dati. Da qui `unstable_rethrow`.
+  const seNonCe = (e: unknown) => {
+    unstable_rethrow(e);
+    return null;
+  };
+  const [standings, season, corsa] = await Promise.all([
     serverFetch<StandingsResult>("/standings/current"),
-    serverFetch<SeasonInfo>("/season/current").catch(() => null),
+    serverFetch<SeasonInfo>("/season/current").catch(seNonCe),
+    serverFetch<CorsaAlTitolo>("/standings/corsa-al-titolo").catch(seNonCe),
   ]);
+
+  const fuoriGioco = new Set((corsa?.squadre ?? []).filter((s) => s.fuori).map((s) => s.teamId));
+  const inCorsa = (corsa?.squadre ?? []).filter((s) => !s.fuori);
 
   const teams = standings.teams;
   const leader = teams[0];
@@ -95,6 +106,49 @@ export default async function ClassificaPage() {
               </Link>
             )}
 
+            {/* ── una riga sola: chi può ancora vincere ── */}
+            {corsa && corsa.roundRimasti > 0 && (
+              <div className="mt-3 rounded-lg border border-line/70 px-3 py-2">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                  <Label className={corsa.campioneMatematico ? "text-acid" : undefined}>
+                    {corsa.campioneMatematico ? "Campione matematico" : "Corsa al titolo"}
+                  </Label>
+                  <span className="note">
+                    {corsa.roundRimasti} {corsa.roundRimasti === 1 ? "gara" : "gare"} alla fine
+                  </span>
+                </div>
+                <p className="note mt-1">
+                  {corsa.campioneMatematico ? (
+                    <>
+                      <strong className="text-bone">{corsa.leaderName}</strong> non è più raggiungibile:
+                      il titolo è suo.
+                    </>
+                  ) : (
+                    <>
+                      Ancora in corsa:{" "}
+                      <strong className="text-bone">
+                        {inCorsa.length + 1} su {corsa.squadre.length + 1}
+                      </strong>
+                      {fuoriGioco.size > 0 && (
+                        <>
+                          {" · fuori "}
+                          {corsa.squadre.filter((s) => s.fuori).map((s) => s.name).join(", ")}
+                        </>
+                      )}
+                      .{" "}
+                      {inCorsa.length > 0 && (
+                        <>
+                          Il più vicino, <strong className="text-bone">{inCorsa[0].name}</strong>, ha{" "}
+                          <span className="num">{inCorsa[0].distacco}</span> punti da recuperare e può
+                          ancora guadagnarne <span className="num">{inCorsa[0].massimoRecuperabile}</span>.
+                        </>
+                      )}
+                    </>
+                  )}
+                </p>
+              </div>
+            )}
+
             {/* ── gli inseguitori: torre dei tempi ── */}
             <ol className="ignite mt-3 space-y-1.5">
               {teams.slice(1).map((t, i) => {
@@ -112,7 +166,9 @@ export default async function ClassificaPage() {
                       </div>
                       <div className="shrink-0 text-right">
                         <p className="num text-lg font-bold leading-none text-bone">{t.total}</p>
-                        <p className="num mt-1 text-[10px] text-bone-dim">−{gap}</p>
+                        <p className="num mt-1 text-[10px] text-bone-dim">
+                          {fuoriGioco.has(t.teamId) ? <span className="label text-bone-dim">fuori</span> : <>−{gap}</>}
+                        </p>
                       </div>
                     </Link>
                   </li>
